@@ -10,6 +10,7 @@
 #include "processing/OpenCvImageProcessor.h"
 #include "infra/LogManager.h"
 #include "infra/ConfigManager.h"
+#include "infra/UiStrings.h"
 #include "core/CameraTypes.h"
 
 #include <QMenuBar>
@@ -37,8 +38,8 @@ QtWidgetsApplication1::QtWidgetsApplication1(QWidget* parent)
 
     // Init libuvc context
     if (!DeviceEnumerator::instance().initialize()) {
-        QMessageBox::critical(this, "Error",
-            "Failed to initialize libuvc.\nCheck USB driver installation.");
+        QMessageBox::critical(this, TR("Error"),
+            TR("Failed to initialize libuvc.\nCheck USB driver installation."));
     }
 
     // Stats timer (4 Hz)
@@ -73,12 +74,12 @@ void QtWidgetsApplication1::setupUi() {
 
     m_splitter->addWidget(m_viewport);
     m_splitter->addWidget(m_controlPanel);
-    m_splitter->setStretchFactor(0, 7);
-    m_splitter->setStretchFactor(1, 3);
+    m_splitter->setStretchFactor(5, 6);  // viewport weight
+    m_splitter->setStretchFactor(5, 2);  // control panel weight
     m_splitter->setChildrenCollapsible(false);
 
     setCentralWidget(m_splitter);
-    resize(1400, 900);
+    resize(1920, 1080);  // initial window size
 }
 
 void QtWidgetsApplication1::setupStyleSheet() {
@@ -131,28 +132,28 @@ void QtWidgetsApplication1::setupStyleSheet() {
 }
 
 void QtWidgetsApplication1::setupMenuBar() {
-    auto* fileMenu = menuBar()->addMenu("&File");
-    fileMenu->addAction("&Load Config...", [this]() {
-        QString path = QFileDialog::getOpenFileName(this, "Load Config", "", "JSON (*.json)");
+    auto* fileMenu = menuBar()->addMenu(TR("&File"));
+    fileMenu->addAction(TR("&Load Config..."), [this]() {
+        QString path = QFileDialog::getOpenFileName(this, TR("&Load Config..."), "", "JSON (*.json)");
         if (!path.isEmpty()) ConfigManager::instance().load(path);
     });
-    fileMenu->addAction("&Save Config...", [this]() {
-        QString path = QFileDialog::getSaveFileName(this, "Save Config", "", "JSON (*.json)");
+    fileMenu->addAction(TR("&Save Config..."), [this]() {
+        QString path = QFileDialog::getSaveFileName(this, TR("&Save Config..."), "", "JSON (*.json)");
         if (!path.isEmpty()) ConfigManager::instance().save(path);
     });
     fileMenu->addSeparator();
-    fileMenu->addAction("E&xit", this, &QWidget::close);
+    fileMenu->addAction(TR("E&xit"), this, &QWidget::close);
 
-    menuBar()->addMenu("&View")->addAction("&Fit to Window");
-    menuBar()->addMenu("&Capture")->addAction("&Snapshot", this, &QtWidgetsApplication1::onSnapshot);
-    menuBar()->addMenu("&Help")->addAction("&About");
+    menuBar()->addMenu(TR("&View"))->addAction(TR("&Fit to Window"));
+    menuBar()->addMenu(TR("&Capture"))->addAction(TR("&Snapshot"), this, &QtWidgetsApplication1::onSnapshot);
+    menuBar()->addMenu(TR("&Help"))->addAction(TR("&About"));
 }
 
 void QtWidgetsApplication1::setupStatusBar() {
-    m_fpsLabel          = new QLabel("FPS: --");
-    m_deviceStatusLabel = new QLabel("Device: Disconnected");
-    m_bandwidthLabel    = new QLabel("Rx: -- MB/s");
-    m_droppedLabel      = new QLabel("Dropped: 0");
+    m_fpsLabel          = new QLabel(TR("FPS: --"));
+    m_deviceStatusLabel = new QLabel(TR("Device: Disconnected"));
+    m_bandwidthLabel    = new QLabel(TR("Rx: -- MB/s"));
+    m_droppedLabel      = new QLabel(TR("Dropped: 0"));
 
     for (auto* lbl : {m_fpsLabel, m_deviceStatusLabel, m_bandwidthLabel, m_droppedLabel}) {
         lbl->setStyleSheet("color:#FFFFFF; padding: 0 10px;");
@@ -212,7 +213,7 @@ void QtWidgetsApplication1::onRefreshDevices() {
     auto devices = DeviceEnumerator::instance().enumerate();
 
     if (devices.isEmpty()) {
-        m_controlPanel->deviceCombo()->addItem("-- No UVC devices found --");
+        m_controlPanel->deviceCombo()->addItem(TR("-- No UVC devices found --"));
         return;
     }
 
@@ -246,10 +247,10 @@ void QtWidgetsApplication1::onOpenDevice() {
         m_controlPanel->setDeviceOpen(false);
         m_viewport->clearImage();
         m_viewport->setOverlayText("");
-        m_deviceStatusLabel->setText("Device: Disconnected");
-        m_fpsLabel->setText("FPS: --");
-        m_bandwidthLabel->setText("Rx: -- MB/s");
-        m_droppedLabel->setText("Dropped: 0");
+        m_deviceStatusLabel->setText(TR("Device: Disconnected"));
+        m_fpsLabel->setText(TR("FPS: --"));
+        m_bandwidthLabel->setText(TR("Rx: -- MB/s"));
+        m_droppedLabel->setText(TR("Dropped: 0"));
         LOG_INFO("Device closed");
         return;
     }
@@ -261,7 +262,7 @@ void QtWidgetsApplication1::onOpenDevice() {
     auto rawDev = reinterpret_cast<uvc_device_t*>(
         m_controlPanel->deviceCombo()->currentData().value<quintptr>());
     if (!rawDev) {
-        LOG_ERROR("Invalid device selection");
+        LOG_ERROR(TR("Invalid device selection").toStdString().c_str());
         return;
     }
 
@@ -269,11 +270,11 @@ void QtWidgetsApplication1::onOpenDevice() {
     m_camera->setRawDevice(rawDev);
 
     if (!m_camera->open()) {
-        QString msg = "Failed to open camera device.\n\n"
-                      + m_camera->lastError()
-                      + "\n\nOn Windows, libuvc requires a WinUSB/libusbK driver.\n"
-                        "Use Zadig (https://zadig.akeo.ie) to replace the driver.";
-        QMessageBox::critical(this, "Error", msg);
+        QString msg = TR("Failed to open camera device.\n\n%1"
+                         "\n\nOn Windows, libuvc requires a WinUSB/libusbK driver.\n"
+                         "Use Zadig (https://zadig.akeo.ie) to replace the driver.")
+                          .arg(m_camera->lastError());
+        QMessageBox::critical(this, TR("Error"), msg);
         m_camera.reset();
         return;
     }
@@ -306,13 +307,13 @@ void QtWidgetsApplication1::onOpenDevice() {
     // Show device info
     auto info = m_camera->getDeviceInfo();
     m_controlPanel->deviceInfoLabel()->setText(
-        QString("VID:%1 PID:%2\n%3")
+        TR("VID:%1 PID:%2\n%3")
             .arg(info.vendor_id, 4, 16, QChar('0'))
             .arg(info.product_id, 4, 16, QChar('0'))
             .arg(QString::fromStdString(info.name)));
 
     m_deviceStatusLabel->setText(
-        QString("Device: %1").arg(QString::fromStdString(info.name)));
+        TR("Device: %1").arg(QString::fromStdString(info.name)));
     LOG_INFO(QString("Device opened: %1").arg(QString::fromStdString(info.name)));
 }
 
@@ -379,7 +380,7 @@ void QtWidgetsApplication1::onApplyStream() {
     QApplication::restoreOverrideCursor();
 
     if (!ok) {
-        QMessageBox::critical(this, "Error", "Failed to start streaming.");
+        QMessageBox::critical(this, TR("Error"), TR("Failed to start streaming."));
         return;
     }
 
@@ -496,10 +497,10 @@ void QtWidgetsApplication1::onToggleRecord(bool start) {
     m_recording = start;
     m_recordCounter = 0;
     if (start) {
-        m_controlPanel->recordBtn()->setText("Stop Recording");
+        m_controlPanel->recordBtn()->setText(TR("Stop Recording"));
         LOG_INFO("Recording started...");
     } else {
-        m_controlPanel->recordBtn()->setText("Record Sequence");
+        m_controlPanel->recordBtn()->setText(TR("Record Sequence"));
         LOG_INFO("Recording stopped.");
     }
 }
@@ -512,13 +513,12 @@ void QtWidgetsApplication1::onDeviceLost() {
     m_deviceOpen = false;
     m_streaming = false;
     m_viewport->clearImage();
-    m_deviceStatusLabel->setText("Device: Disconnected");
+    m_deviceStatusLabel->setText(TR("Device: Disconnected"));
     m_controlPanel->setDeviceOpen(false);
     m_controlPanel->setStreaming(false);
 
-    QMessageBox::critical(this, "Device Lost",
-        "The camera device was disconnected.\n"
-        "All controls have been released.");
+    QMessageBox::critical(this, TR("Device Lost"),
+        TR("The camera device was disconnected.\nAll controls have been released."));
 }
 
 void QtWidgetsApplication1::onStreamError(const QString& error) {

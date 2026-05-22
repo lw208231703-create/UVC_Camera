@@ -1,5 +1,6 @@
 #include "ControlPanel.h"
 #include "CameraSettingsWidget.h"
+#include "infra/UiStrings.h"
 #include <QVBoxLayout>
 #include <QFormLayout>
 #include <QScrollArea>
@@ -27,7 +28,7 @@ ControlPanel::ControlPanel(QWidget* parent)
         m_deviceCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         m_deviceCombo->setMinimumHeight(28);
 
-        auto* refreshBtn = new QPushButton("Refresh");
+        auto* refreshBtn = new QPushButton(TR("Refresh"));
         refreshBtn->setFixedWidth(70);
         connect(refreshBtn, &QPushButton::clicked, this, &ControlPanel::refreshDevices);
 
@@ -35,10 +36,10 @@ ControlPanel::ControlPanel(QWidget* parent)
         devTop->addWidget(m_deviceCombo);
         devTop->addWidget(refreshBtn);
 
-        m_openBtn = new QPushButton("Open Camera");
+        m_openBtn = new QPushButton(TR("Open Camera"));
         m_openBtn->setObjectName("openBtn");
 
-        m_deviceInfoLabel = new QLabel("No device selected");
+        m_deviceInfoLabel = new QLabel(TR("No device selected"));
         m_deviceInfoLabel->setWordWrap(true);
         m_deviceInfoLabel->setStyleSheet("color:#858585; font-size:11px;");
 
@@ -47,7 +48,7 @@ ControlPanel::ControlPanel(QWidget* parent)
         devLayout->addWidget(m_openBtn);
         devLayout->addWidget(m_deviceInfoLabel);
 
-        mainLayout->addWidget(makeGroup("Device Connection", devLayout));
+        mainLayout->addWidget(makeGroup(TR("Device Connection"), devLayout));
     }
 
     // ── Format group ──
@@ -58,45 +59,45 @@ ControlPanel::ControlPanel(QWidget* parent)
 
         m_resolutionCombo = new QComboBox;
         m_resolutionCombo->setEnabled(false);
-        m_resolutionCombo->addItem("-- Select --");
+        m_resolutionCombo->addItem(TR("-- Select --"));
 
-        m_applyBtn = new QPushButton("Apply & Start Streaming");
+        m_applyBtn = new QPushButton(TR("Apply & Start Streaming"));
         m_applyBtn->setObjectName("applyBtn");
         m_applyBtn->setEnabled(false);
 
         auto* fmtLayout = new QFormLayout;
-        fmtLayout->addRow("Format:", m_formatCombo);
-        fmtLayout->addRow("Resolution:", m_resolutionCombo);
+        fmtLayout->addRow(TR("Format:"), m_formatCombo);
+        fmtLayout->addRow(TR("Resolution:"), m_resolutionCombo);
 
         auto* grpLayout = new QVBoxLayout;
         grpLayout->addLayout(fmtLayout);
         grpLayout->addWidget(m_applyBtn);
 
-        mainLayout->addWidget(makeGroup("Format & Stream", grpLayout));
+        mainLayout->addWidget(makeGroup(TR("Format & Stream"), grpLayout));
     }
 
     // ── Processing group ──
     {
-        m_gaussianCheck = new QCheckBox("Gaussian Blur");
+        m_gaussianCheck = new QCheckBox(TR("Gaussian Blur"));
         m_gaussianCheck->setEnabled(false);
-        m_histogramCheck = new QCheckBox("Histogram Equalization");
+        m_histogramCheck = new QCheckBox(TR("Histogram Equalization"));
         m_histogramCheck->setEnabled(false);
 
         auto* procLayout = new QVBoxLayout;
         procLayout->addWidget(m_gaussianCheck);
         procLayout->addWidget(m_histogramCheck);
 
-        mainLayout->addWidget(makeGroup("Image Processing (OpenCV)", procLayout));
+        mainLayout->addWidget(makeGroup(TR("Image Processing (OpenCV)"), procLayout));
     }
 
     // ── Capture group ──
     {
-        m_snapshotBtn = new QPushButton("Snapshot");
+        m_snapshotBtn = new QPushButton(TR("Snapshot"));
         m_snapshotBtn->setObjectName("captureBtn");
         m_snapshotBtn->setMinimumHeight(40);
         m_snapshotBtn->setEnabled(false);
 
-        m_recordBtn = new QPushButton("Record Sequence");
+        m_recordBtn = new QPushButton(TR("Record Sequence"));
         m_recordBtn->setObjectName("captureBtn");
         m_recordBtn->setMinimumHeight(40);
         m_recordBtn->setEnabled(false);
@@ -106,7 +107,7 @@ ControlPanel::ControlPanel(QWidget* parent)
         capLayout->addWidget(m_snapshotBtn);
         capLayout->addWidget(m_recordBtn);
 
-        mainLayout->addWidget(makeGroup("Capture", capLayout));
+        mainLayout->addWidget(makeGroup(TR("Capture"), capLayout));
     }
 
     // ── Camera Settings ──
@@ -132,7 +133,7 @@ ControlPanel::ControlPanel(QWidget* parent)
             "}"
         );
 
-        mainLayout->addWidget(makeGroup("System Log", new QVBoxLayout));
+        mainLayout->addWidget(makeGroup(TR("System Log"), new QVBoxLayout));
         auto* grp = qobject_cast<QGroupBox*>(mainLayout->itemAt(mainLayout->count() - 1)->widget());
         if (grp && grp->layout()) {
             grp->layout()->addWidget(m_logView);
@@ -170,7 +171,7 @@ void ControlPanel::setDeviceOpen(bool open) {
     m_resolutionCombo->setEnabled(open);
     m_applyBtn->setEnabled(open);
 
-    m_openBtn->setText(open ? "Close Camera" : "Open Camera");
+    m_openBtn->setText(open ? TR("Close Camera") : TR("Open Camera"));
     m_openBtn->setStyleSheet(open
         ? "QPushButton { background-color: #8B0000; color: #CCCCCC; } QPushButton:hover { background-color: #A00000; }"
         : "");
@@ -185,7 +186,7 @@ void ControlPanel::setStreaming(bool streaming) {
     m_snapshotBtn->setEnabled(streaming);
     m_recordBtn->setEnabled(streaming);
 
-    m_applyBtn->setText(streaming ? "Stop Streaming" : "Apply & Start Streaming");
+    m_applyBtn->setText(streaming ? TR("Stop Streaming") : TR("Apply & Start Streaming"));
     m_applyBtn->setStyleSheet(streaming
         ? "QPushButton { background-color: #8B0000; } QPushButton:hover { background-color: #A00000; }"
         : "");

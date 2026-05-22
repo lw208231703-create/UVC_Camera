@@ -1,5 +1,6 @@
 #include "CameraSettingsWidget.h"
 #include "hal/UvcControls.h"
+#include "infra/UiStrings.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -92,41 +93,41 @@ void CameraSettingsWidget::setupUi() {
 
     // ── Image Adjustments ──
     {
-        auto* grp = makeGroup("Image Adjustments");
+        auto* grp = makeGroup(TR("Image Adjustments"));
         auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
 
-        lay->addWidget(makeSliderRow("Brightness", m_brightnessSlider, m_brightnessLabel, 0, 255, 128));
+        lay->addWidget(makeSliderRow(TR("Brightness"), m_brightnessSlider, m_brightnessLabel, 0, 255, 128));
         connectSlider(m_brightnessSlider, m_brightnessLabel, 1.0,
                       [this](int v) { return m_ctrl->setBrightness((int16_t)v); });
 
-        lay->addWidget(makeSliderRow("Contrast", m_contrastSlider, m_contrastLabel, 0, 255, 128));
+        lay->addWidget(makeSliderRow(TR("Contrast"), m_contrastSlider, m_contrastLabel, 0, 255, 128));
         connectSlider(m_contrastSlider, m_contrastLabel, 1.0,
                       [this](int v) { return m_ctrl->setContrast((uint16_t)v); });
-        lay->addWidget(makeCheckRow("Contrast Auto", m_contrastAuto, false));
+        lay->addWidget(makeCheckRow(TR("Contrast Auto"), m_contrastAuto, false));
         connect(m_contrastAuto, &QCheckBox::toggled, this, [this](bool on) {
             if (!m_updating && m_ctrl) m_ctrl->setContrastAuto(on ? 1 : 0);
         });
 
-        lay->addWidget(makeSliderRow("Gain", m_gainSlider, m_gainLabel, 0, 255, 0));
+        lay->addWidget(makeSliderRow(TR("Gain"), m_gainSlider, m_gainLabel, 0, 255, 0));
         connectSlider(m_gainSlider, m_gainLabel, 1.0,
                       [this](int v) { return m_ctrl->setGain((uint16_t)v); });
 
-        lay->addWidget(makeSliderRow("Saturation", m_saturationSlider, m_saturationLabel, 0, 255, 128));
+        lay->addWidget(makeSliderRow(TR("Saturation"), m_saturationSlider, m_saturationLabel, 0, 255, 128));
         connectSlider(m_saturationSlider, m_saturationLabel, 1.0,
                       [this](int v) { return m_ctrl->setSaturation((uint16_t)v); });
 
-        lay->addWidget(makeSliderRow("Sharpness", m_sharpnessSlider, m_sharpnessLabel, 0, 255, 128));
+        lay->addWidget(makeSliderRow(TR("Sharpness"), m_sharpnessSlider, m_sharpnessLabel, 0, 255, 128));
         connectSlider(m_sharpnessSlider, m_sharpnessLabel, 1.0,
                       [this](int v) { return m_ctrl->setSharpness((uint16_t)v); });
 
-        lay->addWidget(makeSliderRow("Gamma", m_gammaSlider, m_gammaLabel, 100, 500, 200));
+        lay->addWidget(makeSliderRow(TR("Gamma"), m_gammaSlider, m_gammaLabel, 100, 500, 200));
         connectSlider(m_gammaSlider, m_gammaLabel, 1.0,
                       [this](int v) { return m_ctrl->setGamma((uint16_t)v); });
 
-        lay->addWidget(makeSliderRow("Hue", m_hueSlider, m_hueLabel, -180, 180, 0));
+        lay->addWidget(makeSliderRow(TR("Hue"), m_hueSlider, m_hueLabel, -180, 180, 0));
         connectSlider(m_hueSlider, m_hueLabel, 1.0,
                       [this](int v) { return m_ctrl->setHue((int16_t)v); });
-        lay->addWidget(makeCheckRow("Hue Auto", m_hueAuto, false));
+        lay->addWidget(makeCheckRow(TR("Hue Auto"), m_hueAuto, false));
         connect(m_hueAuto, &QCheckBox::toggled, this, [this](bool on) {
             if (!m_updating && m_ctrl) m_ctrl->setHueAuto(on ? 1 : 0);
         });
@@ -136,13 +137,13 @@ void CameraSettingsWidget::setupUi() {
 
     // ── White Balance ──
     {
-        auto* grp = makeGroup("White Balance");
+        auto* grp = makeGroup(TR("White Balance"));
         auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
 
-        lay->addWidget(makeSliderRow("Temperature", m_wbTempSlider, m_wbTempLabel, 2000, 6500, 4000));
+        lay->addWidget(makeSliderRow(TR("Temperature"), m_wbTempSlider, m_wbTempLabel, 2000, 6500, 4000));
         connectSlider(m_wbTempSlider, m_wbTempLabel, 1.0,
                       [this](int v) { return m_ctrl->setWhiteBalanceTemp((uint16_t)v); });
-        lay->addWidget(makeCheckRow("Auto White Balance", m_wbAuto, true));
+        lay->addWidget(makeCheckRow(TR("Auto White Balance"), m_wbAuto, true));
         connect(m_wbAuto, &QCheckBox::toggled, this, [this](bool on) {
             if (!m_updating && m_ctrl) m_ctrl->setWhiteBalanceTempAuto(on ? 1 : 0);
         });
@@ -152,25 +153,25 @@ void CameraSettingsWidget::setupUi() {
 
     // ── Exposure ──
     {
-        auto* grp = makeGroup("Exposure");
+        auto* grp = makeGroup(TR("Exposure"));
         auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
 
-        lay->addWidget(makeSliderRow("Exp. Time", m_exposureSlider, m_exposureLabel, 0, 10000, 156));
+        lay->addWidget(makeSliderRow(TR("Exp. Time"), m_exposureSlider, m_exposureLabel, 0, 10000, 156));
         connectSlider(m_exposureSlider, m_exposureLabel, 1.0,
                       [this](int v) { return m_ctrl->setExposureAbs((uint32_t)v); });
 
-        lay->addWidget(makeComboRow("AE Mode", m_aeModeCombo));
-        m_aeModeCombo->addItem("Manual", 1);
-        m_aeModeCombo->addItem("Auto", 2);
-        m_aeModeCombo->addItem("Shutter Priority", 4);
-        m_aeModeCombo->addItem("Aperture Priority", 8);
+        lay->addWidget(makeComboRow(TR("AE Mode"), m_aeModeCombo));
+        m_aeModeCombo->addItem(TR("Manual"), 1);
+        m_aeModeCombo->addItem(TR("Auto"), 2);
+        m_aeModeCombo->addItem(TR("Shutter Priority"), 4);
+        m_aeModeCombo->addItem(TR("Aperture Priority"), 8);
         connect(m_aeModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
                 [this](int idx) {
             if (!m_updating && m_ctrl)
                 m_ctrl->setAeMode((uint8_t)m_aeModeCombo->itemData(idx).toUInt());
         });
 
-        lay->addWidget(makeCheckRow("AE Priority", m_aePriorityCheck, false));
+        lay->addWidget(makeCheckRow(TR("AE Priority"), m_aePriorityCheck, false));
         connect(m_aePriorityCheck, &QCheckBox::toggled, this, [this](bool on) {
             if (!m_updating && m_ctrl) m_ctrl->setAePriority(on ? 1 : 0);
         });
@@ -180,13 +181,13 @@ void CameraSettingsWidget::setupUi() {
 
     // ── Focus ──
     {
-        auto* grp = makeGroup("Focus");
+        auto* grp = makeGroup(TR("Focus"));
         auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
 
-        lay->addWidget(makeSliderRow("Focus", m_focusSlider, m_focusLabel, 0, 255, 0));
+        lay->addWidget(makeSliderRow(TR("Focus"), m_focusSlider, m_focusLabel, 0, 255, 0));
         connectSlider(m_focusSlider, m_focusLabel, 1.0,
                       [this](int v) { return m_ctrl->setFocusAbs((uint16_t)v); });
-        lay->addWidget(makeCheckRow("Auto Focus", m_focusAuto, true));
+        lay->addWidget(makeCheckRow(TR("Auto Focus"), m_focusAuto, true));
         connect(m_focusAuto, &QCheckBox::toggled, this, [this](bool on) {
             if (!m_updating && m_ctrl) m_ctrl->setFocusAuto(on ? 1 : 0);
         });
@@ -196,22 +197,22 @@ void CameraSettingsWidget::setupUi() {
 
     // ── Lens (Zoom / Iris / Pan-Tilt) ──
     {
-        auto* grp = makeGroup("Lens");
+        auto* grp = makeGroup(TR("Lens"));
         auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
 
-        lay->addWidget(makeSliderRow("Zoom", m_zoomSlider, m_zoomLabel, 0, 100, 0));
+        lay->addWidget(makeSliderRow(TR("Zoom"), m_zoomSlider, m_zoomLabel, 0, 100, 0));
         connectSlider(m_zoomSlider, m_zoomLabel, 1.0,
                       [this](int v) { return m_ctrl->setZoomAbs((uint16_t)v); });
 
-        lay->addWidget(makeSliderRow("Iris", m_irisSlider, m_irisLabel, 0, 255, 128));
+        lay->addWidget(makeSliderRow(TR("Iris"), m_irisSlider, m_irisLabel, 0, 255, 128));
         connectSlider(m_irisSlider, m_irisLabel, 1.0,
                       [this](int v) { return m_ctrl->setIrisAbs((uint16_t)v); });
 
-        lay->addWidget(makeSliderRow("Pan", m_panSlider, m_panLabel, -3600, 3600, 0));
+        lay->addWidget(makeSliderRow(TR("Pan"), m_panSlider, m_panLabel, -3600, 3600, 0));
         connectSlider(m_panSlider, m_panLabel, 1.0,
                       [this](int v) { return m_ctrl->setPanTiltAbs(v, m_tiltSlider->value()); });
 
-        lay->addWidget(makeSliderRow("Tilt", m_tiltSlider, m_tiltLabel, -3600, 3600, 0));
+        lay->addWidget(makeSliderRow(TR("Tilt"), m_tiltSlider, m_tiltLabel, -3600, 3600, 0));
         connectSlider(m_tiltSlider, m_tiltLabel, 1.0,
                       [this](int v) { return m_ctrl->setPanTiltAbs(m_panSlider->value(), v); });
 
@@ -220,17 +221,17 @@ void CameraSettingsWidget::setupUi() {
 
     // ── Other ──
     {
-        auto* grp = makeGroup("Other");
+        auto* grp = makeGroup(TR("Other"));
         auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
 
-        lay->addWidget(makeSliderRow("Backlight", m_backlightSlider, m_backlightLabel, 0, 255, 0));
+        lay->addWidget(makeSliderRow(TR("Backlight"), m_backlightSlider, m_backlightLabel, 0, 255, 0));
         connectSlider(m_backlightSlider, m_backlightLabel, 1.0,
                       [this](int v) { return m_ctrl->setBacklightComp((uint16_t)v); });
 
-        lay->addWidget(makeComboRow("Power Line", m_powerLineCombo));
-        m_powerLineCombo->addItem("Disabled", 0);
-        m_powerLineCombo->addItem("50 Hz", 1);
-        m_powerLineCombo->addItem("60 Hz", 2);
+        lay->addWidget(makeComboRow(TR("Power Line"), m_powerLineCombo));
+        m_powerLineCombo->addItem(TR("Disabled"), 0);
+        m_powerLineCombo->addItem(TR("50 Hz"), 1);
+        m_powerLineCombo->addItem(TR("60 Hz"), 2);
         connect(m_powerLineCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
                 [this](int idx) {
             if (!m_updating && m_ctrl)

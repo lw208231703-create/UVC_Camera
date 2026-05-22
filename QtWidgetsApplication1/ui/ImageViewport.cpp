@@ -1,4 +1,5 @@
 #include "ImageViewport.h"
+#include "infra/UiStrings.h"
 #include <QPainter>
 #include <QWheelEvent>
 #include <QMouseEvent>
@@ -47,7 +48,7 @@ void ImageViewport::paintEvent(QPaintEvent*) {
         QFont f = font();
         f.setPointSize(18);
         p.setFont(f);
-        p.drawText(rect(), Qt::AlignCenter, "Device Offline");
+        p.drawText(rect(), Qt::AlignCenter, TR("Device Offline"));
     }
 
     // HUD overlay (top-left)
