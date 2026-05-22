@@ -68,6 +68,7 @@ private:
     // Protocol & processing
     std::unique_ptr<IProtocolHandler> m_protocol;
     std::unique_ptr<IImageProcessor>  m_processor;
+    std::unique_ptr<class UvcControls> m_uvcControls;
 
     // State
     bool m_deviceOpen = false;

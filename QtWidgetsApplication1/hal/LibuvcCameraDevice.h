@@ -38,6 +38,7 @@ public:
     // Set the raw uvc_device pointer from enumeration
     void setRawDevice(struct uvc_device* dev);
     struct uvc_device* rawDevice() const { return m_rawDevice; }
+    struct uvc_device_handle* deviceHandle() const { return m_devh; }
 
     // Stats accessors
     uint64_t totalBytes() const    { return m_totalBytes; }

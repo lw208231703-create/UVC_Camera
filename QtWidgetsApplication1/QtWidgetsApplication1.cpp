@@ -1,8 +1,10 @@
 #include "QtWidgetsApplication1.h"
 #include "ui/ImageViewport.h"
 #include "ui/ControlPanel.h"
+#include "ui/CameraSettingsWidget.h"
 #include "hal/DeviceEnumerator.h"
 #include "hal/LibuvcCameraDevice.h"
+#include "hal/UvcControls.h"
 #include "protocol/StandardUvcProtocol.h"
 #include "protocol/CustomUvcProtocol.h"
 #include "processing/OpenCvImageProcessor.h"
@@ -237,6 +239,8 @@ void QtWidgetsApplication1::onOpenDevice() {
         m_camera.reset();
         m_protocol.reset();
         m_processor.reset();
+        m_uvcControls.reset();
+        m_controlPanel->cameraSettings()->clearControls();
 
         m_deviceOpen = false;
         m_controlPanel->setDeviceOpen(false);
@@ -288,6 +292,10 @@ void QtWidgetsApplication1::onOpenDevice() {
 
     // Init processor
     m_processor = std::make_unique<OpenCvImageProcessor>();
+
+    // Init UVC controls
+    m_uvcControls = std::make_unique<UvcControls>(m_camera->deviceHandle());
+    m_controlPanel->cameraSettings()->setControls(m_uvcControls.get());
 
     m_deviceOpen = true;
     m_controlPanel->setDeviceOpen(true);
@@ -380,8 +388,6 @@ void QtWidgetsApplication1::onApplyStream() {
     m_displayFrameCount = 0;
     m_lastFrameBytes = 0;
     m_lastFrameCount = 0;
-
-    m_viewport->setShowCrosshair(true);
 
     LOG_INFO(QString("Streaming started: %1x%2")
         .arg(fmt.width).arg(fmt.height));

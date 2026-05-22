@@ -41,15 +41,6 @@ void ImageViewport::paintEvent(QPaintEvent*) {
     if (!m_pixmap.isNull()) {
         QRectF ir = imageRect();
         p.drawPixmap(ir, m_pixmap, m_pixmap.rect());
-
-        // Crosshair
-        if (m_showCrosshair) {
-            QPen pen(QColor(0, 255, 0, 120), 1, Qt::DashLine);
-            p.setPen(pen);
-            QPointF c = ir.center();
-            p.drawLine(QPointF(c.x(), ir.top()), QPointF(c.x(), ir.bottom()));
-            p.drawLine(QPointF(ir.left(), c.y()), QPointF(ir.right(), c.y()));
-        }
     } else {
         // Offline placeholder
         p.setPen(QColor("#555555"));
@@ -99,6 +90,13 @@ void ImageViewport::mouseMoveEvent(QMouseEvent* event) {
         m_panStart = event->position();
         m_fitToWindow = false;
         update();
+    }
+}
+
+void ImageViewport::mouseReleaseEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton && m_panning) {
+        m_panning = false;
+        setCursor(Qt::ArrowCursor);
     }
 }
 

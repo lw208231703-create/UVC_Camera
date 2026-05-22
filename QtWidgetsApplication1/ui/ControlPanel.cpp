@@ -1,4 +1,5 @@
 #include "ControlPanel.h"
+#include "CameraSettingsWidget.h"
 #include <QVBoxLayout>
 #include <QFormLayout>
 #include <QScrollArea>
@@ -6,9 +7,19 @@
 ControlPanel::ControlPanel(QWidget* parent)
     : QWidget(parent)
 {
-    auto* mainLayout = new QVBoxLayout(this);
+    auto* outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto* scroll = new QScrollArea;
+    scroll->setWidgetResizable(true);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    outerLayout->addWidget(scroll);
+
+    auto* inner = new QWidget;
+    auto* mainLayout = new QVBoxLayout(inner);
     mainLayout->setContentsMargins(8, 8, 8, 8);
     mainLayout->setSpacing(8);
+    scroll->setWidget(inner);
 
     // ── Device group ──
     {
@@ -96,6 +107,13 @@ ControlPanel::ControlPanel(QWidget* parent)
         capLayout->addWidget(m_recordBtn);
 
         mainLayout->addWidget(makeGroup("Capture", capLayout));
+    }
+
+    // ── Camera Settings ──
+    {
+        m_cameraSettings = new CameraSettingsWidget;
+        m_cameraSettings->setMaximumHeight(350);
+        mainLayout->addWidget(m_cameraSettings);
     }
 
     // ── Log area ──

@@ -37,7 +37,8 @@
       "Bash(\"/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/\")",
       "Bash(cp \"/d/code-lib/UVC_Camera/third_party/CUDA/v12.4/bin/\"*.dll \"/d/code-lib/UVC_Camera/QtWidgetsApplication1/x64/Release/\")",
       "Bash(cp \"/d/code-lib/UVC_Camera/third_party/CUDNN/v9.17/bin/12.9/\"*.dll \"/d/code-lib/UVC_Camera/QtWidgetsApplication1/x64/Release/\")",
-      "Bash(powershell.exe -Command \"taskkill /F /IM QtWidgetsApplication1.exe 2>&1; Start-Sleep 1\")"
+      "Bash(powershell.exe -Command \"taskkill /F /IM QtWidgetsApplication1.exe 2>&1; Start-Sleep 1\")",
+      "Bash(powershell.exe -Command \"taskkill /F /IM QtWidgetsApplication1.exe 2>&1\")"
     ]
   }
 }

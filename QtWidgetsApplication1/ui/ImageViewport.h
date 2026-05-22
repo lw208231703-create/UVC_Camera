@@ -17,7 +17,6 @@ public:
     bool hasImage() const { return !m_pixmap.isNull(); }
 
     void setOverlayText(const QString& text);
-    void setShowCrosshair(bool show) { m_showCrosshair = show; update(); }
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -25,6 +24,7 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
 
 private:
@@ -41,6 +41,5 @@ private:
     QPointF m_offset;
     QPointF m_panStart;
     bool m_panning = false;
-    bool m_showCrosshair = false;
     bool m_fitToWindow = true;
 };

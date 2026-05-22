@@ -63,6 +63,9 @@ bool LibuvcCameraDevice::open() {
             cf.fps = frame->dwDefaultFrameInterval > 0
                 ? static_cast<uint32_t>(10000000.0 / frame->dwDefaultFrameInterval) : 30;
             memcpy(&cf.fourcc, fmtDesc->fourccFormat, 4);
+            cf.bFormatIndex = fmtDesc->bFormatIndex;
+            cf.bFrameIndex  = frame->bFrameIndex;
+            cf.bDescriptorSubtype = fmtDesc->bDescriptorSubtype;
             cf.description = QString("%1x%2 @%3fps")
                 .arg(cf.width).arg(cf.height).arg(cf.fps).toStdString();
             m_deviceInfo.supported_formats.push_back(cf);
@@ -101,31 +104,91 @@ bool LibuvcCameraDevice::startStreaming() {
     if (m_streaming) return true;
     if (!m_devh) return false;
 
-    uvc_frame_format uvcFmt = UVC_FRAME_FORMAT_GRAY16;
+    uvc_frame_format uvcFmt = UVC_FRAME_FORMAT_ANY;
+    uint8_t subtype = m_currentFormat.bDescriptorSubtype;
     std::string fourcc(reinterpret_cast<const char*>(&m_currentFormat.fourcc), 4);
-    if (fourcc.find("YUYV") != std::string::npos || fourcc == "YUY2")
-        uvcFmt = UVC_FRAME_FORMAT_YUYV;
-    else if (fourcc == "Y16 " || fourcc.find("Y16") != std::string::npos)
-        uvcFmt = UVC_FRAME_FORMAT_GRAY16;
-    else if (fourcc == "Y800" || fourcc.find("Y80") != std::string::npos)
-        uvcFmt = UVC_FRAME_FORMAT_GRAY8;
-    else if (fourcc.find("MJPG") != std::string::npos)
+
+    // Filter non-printable chars from fourcc for comparison
+    auto fourccTrim = [](const std::string& s) {
+        std::string r;
+        for (char c : s) if (c >= 32 && c < 127) r += c;
+        return r;
+    };
+    std::string fc = fourccTrim(fourcc);
+
+    // Map UVC descriptor subtype + FOURCC to libuvc frame format
+    if (subtype == 0x06) { // UVC_VS_FORMAT_MJPEG
         uvcFmt = UVC_FRAME_FORMAT_MJPEG;
+    } else if (subtype == 0x10) { // UVC_VS_FORMAT_FRAME_BASED
+        uvcFmt = UVC_FRAME_FORMAT_H264;
+    } else if (subtype == 0x04) { // UVC_VS_FORMAT_UNCOMPRESSED
+        if (fc.find("YUYV") != std::string::npos || fc == "YUY2")
+            uvcFmt = UVC_FRAME_FORMAT_YUYV;
+        else if (fc == "UYVY")
+            uvcFmt = UVC_FRAME_FORMAT_UYVY;
+        else if (fc == "NV12")
+            uvcFmt = UVC_FRAME_FORMAT_NV12;
+        else if (fc == "P010")
+            uvcFmt = UVC_FRAME_FORMAT_P010;
+        else if (fc.find("Y16") != std::string::npos || fc == "Y16")
+            uvcFmt = UVC_FRAME_FORMAT_GRAY16;
+        else if (fc.find("Y80") != std::string::npos || fc.find("Y8") != std::string::npos || fc == "Y800")
+            uvcFmt = UVC_FRAME_FORMAT_GRAY8;
+        else if (fc.find("RGB") != std::string::npos)
+            uvcFmt = UVC_FRAME_FORMAT_RGB;
+        else if (fc.find("BGR") != std::string::npos)
+            uvcFmt = UVC_FRAME_FORMAT_BGR;
+        else if (fc == "BY8" || fc.find("BY8") != std::string::npos)
+            uvcFmt = UVC_FRAME_FORMAT_BY8;
+        else if (fc == "BA81")
+            uvcFmt = UVC_FRAME_FORMAT_BA81;
+        else
+            uvcFmt = UVC_FRAME_FORMAT_UNCOMPRESSED; // generic fallback
+    } else if (subtype == 0x12) { // UVC_VS_FORMAT_STREAM_BASED
+        uvcFmt = UVC_FRAME_FORMAT_ANY;
+    } else {
+        // Unknown subtype, try FOURCC heuristics
+        if (fc.find("MJPG") != std::string::npos)
+            uvcFmt = UVC_FRAME_FORMAT_MJPEG;
+        else if (fc.find("YUYV") != std::string::npos)
+            uvcFmt = UVC_FRAME_FORMAT_YUYV;
+        else
+            uvcFmt = UVC_FRAME_FORMAT_ANY;
+    }
 
     auto* ctrl = new struct uvc_stream_ctrl();
     memset(ctrl, 0, sizeof(struct uvc_stream_ctrl));
 
-    uvc_error_t res = uvc_get_stream_ctrl_format_size(
-        m_devh, ctrl, uvcFmt,
-        static_cast<int>(m_currentFormat.width),
-        static_cast<int>(m_currentFormat.height),
-        static_cast<int>(m_currentFormat.fps));
+    int width  = static_cast<int>(m_currentFormat.width);
+    int height = static_cast<int>(m_currentFormat.height);
+    int fps    = static_cast<int>(m_currentFormat.fps);
+
+    // Some UVC cameras need a dummy probe first to initialize the streaming interface.
+    // Try up to 2 times; on first failure, do a warm-up probe then retry.
+    uvc_error_t res = UVC_ERROR_INVALID_MODE;
+    for (int attempt = 0; attempt < 2; attempt++) {
+        res = uvc_get_stream_ctrl_format_size(m_devh, ctrl, uvcFmt, width, height, fps);
+        if (res == UVC_SUCCESS) break;
+
+        if (attempt == 0) {
+            // Warm-up: probe a generic uncompressed format to initialize the VS interface
+            uvc_stream_ctrl_t warmup = {};
+            uvc_get_stream_ctrl_format_size(m_devh, &warmup, UVC_FRAME_FORMAT_ANY, 0, 0, 0);
+        }
+    }
 
     if (res != UVC_SUCCESS) {
         delete ctrl;
-        LOG_ERROR(QString("uvc_get_stream_ctrl_format_size failed: %1").arg(uvc_strerror(res)));
+        LOG_ERROR(QString("uvc_get_stream_ctrl_format_size failed: %1 (fourcc=%2 subtype=%3 fps=%4)")
+            .arg(uvc_strerror(res))
+            .arg(QString::fromStdString(fc))
+            .arg(subtype)
+            .arg(fps));
         return false;
     }
+
+    // Probe the stream control to negotiate with the device before starting
+    uvc_probe_stream_ctrl(m_devh, ctrl);
 
     res = uvc_start_streaming(m_devh, ctrl, frameCallback, this, 0);
     if (res != UVC_SUCCESS) {

@@ -9,6 +9,9 @@ struct CameraFormat {
     uint32_t height = 0;
     uint32_t fourcc = 0;       // V4L2/Pixel format FourCC (e.g. "Y16 ", "Y800")
     uint32_t fps = 0;
+    uint8_t  bFormatIndex = 0; // UVC format descriptor index
+    uint8_t  bFrameIndex  = 0; // UVC frame descriptor index
+    uint8_t  bDescriptorSubtype = 0; // UVC_VS_FORMAT_UNCOMPRESSED / MJPEG / FRAME_BASED
     std::string description;
 };
 

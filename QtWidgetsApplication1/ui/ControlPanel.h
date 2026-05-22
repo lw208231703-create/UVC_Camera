@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QWidget>
+#include <QScrollArea>
 #include <QComboBox>
 #include <QPushButton>
 #include <QCheckBox>
@@ -8,6 +9,8 @@
 #include <QGroupBox>
 #include <QTextEdit>
 #include <QVBoxLayout>
+
+class CameraSettingsWidget;
 
 class ControlPanel : public QWidget {
     Q_OBJECT
@@ -35,6 +38,9 @@ public:
 
     // Log area
     QTextEdit* logView()       { return m_logView; }
+
+    // Camera settings
+    CameraSettingsWidget* cameraSettings() { return m_cameraSettings; }
 
     void setDeviceOpen(bool open);
     void setStreaming(bool streaming);
@@ -65,4 +71,7 @@ private:
 
     // Log
     QTextEdit*  m_logView;
+
+    // Camera settings
+    CameraSettingsWidget* m_cameraSettings;
 };
