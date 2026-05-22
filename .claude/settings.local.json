@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Program Files/**)",
+      "Read(//c/Program Files \\(x86\\)/Microsoft Visual Studio/**)",
+      "Bash(where msbuild *)",
+      "Bash(cmd.exe //c \"where msbuild 2>&1\")",
+      "Read(//mnt/c/Program Files/Microsoft Visual Studio/**)",
+      "Read(//mnt/c/Program Files \\(x86\\)/Microsoft Visual Studio/**)",
+      "Bash(ls \"/c/Program Files/Microsoft Visual Studio/2022/\" 2>/dev/null; ls \"/d/\" 2>/dev/null | head -5)",
+      "Read(//d//**)",
+      "Bash(cmd.exe /c \"dir \\\\\"C:\\\\\\\\Program Files\\\\\\\\Microsoft Visual Studio\\\\\\\\2022\\\\\\\\Professional\\\\\\\\MSBuild\\\\\\\\Current\\\\\\\\Bin\\\\\\\\MSBuild.exe\\\\\" 2>&1\")",
+      "Bash(cmd.exe //c \"dir \\\\\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Professional\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\\\\\"\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem -Path 'C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Professional\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName\")",
+      "Bash(powershell.exe -Command \"& 'C:\\\\Program Files \\(x86\\)\\\\Microsoft Visual Studio\\\\Installer\\\\vswhere.exe' -latest -requires Microsoft.Component.MSBuild -find MSBuild\\\\**\\\\Bin\\\\MSBuild.exe 2>&1\")",
+      "Bash(\"/d/Program Files/Microsoft Visual Studio/2022/Professional/MSBuild/Current/Bin/MSBuild.exe\" \"/d/code-lib/UVC_Camera/QtWidgetsApplication1/QtWidgetsApplication1.sln\" /p:Configuration=Release /p:Platform=x64 /v:normal)",
+      "Bash(cmd.exe //c \"\\\\\"D:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Professional\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\\\\\" QtWidgetsApplication1\\\\QtWidgetsApplication1.sln /p:Configuration=Release /p:Platform=x64 /v:normal\")",
+      "Bash(cmd.exe //c \"dir /x \\\\\"D:\\\\\\\\Program Files\\\\\\\\Microsoft Visual Studio\\\\\\\\2022\\\\\\\\Professional\\\\\\\\MSBuild\\\\\\\\Current\\\\\\\\Bin\\\\\\\\\\\\\" 2>&1 | findstr MSBuild\")",
+      "Bash(powershell.exe -Command \"& 'D:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Professional\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe' 'd:\\\\code-lib\\\\UVC_Camera\\\\QtWidgetsApplication1\\\\QtWidgetsApplication1.sln' /p:Configuration=Release /p:Platform=x64 /v:normal\")",
+      "Bash(\"/c/Users/admin/Desktop/fsdownload/vcpkg/vcpkg\" install *)",
+      "Bash(sleep 120 && cat \"/c/Users/admin/AppData/Local/Temp/claude/d--code-lib-UVC-Camera/afd97f29-0cf4-46ad-9735-0fb561a0c424/tasks/bjcppytjz.output\" 2>/dev/null | tail -20)",
+      "Read(//c/Users/admin/AppData/Local/Temp/claude/d--code-lib-UVC-Camera/afd97f29-0cf4-46ad-9735-0fb561a0c424/tasks/**)",
+      "Bash(ls \"/c/Users/admin/Desktop/fsdownload/vcpkg/installed/x64-windows/lib/libusb-1.0.lib\" 2>/dev/null && echo \"libusb lib OK\" || echo \"NOT FOUND\")",
+      "Read(//c/Users/admin/Desktop/fsdownload/vcpkg/installed/x64-windows/lib/**)",
+      "Bash(rm -rf build)",
+      "Bash(cmake -B build -G \"Visual Studio 17 2022\" -A x64 -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .)",
+      "Bash(cmake --build build --config Release --target uvc_static)",
+      "Read(//c/Program Files \\(x86\\)/Windows Kits/10/Include/10.0.26100.0/ucrt/**)",
+      "Bash(powershell.exe -Command \"Get-Content 'D:\\\\code-lib\\\\UVC_Camera\\\\third_party\\\\libuvc_build\\\\build\\\\libuvc\\\\uvc_static.dir\\\\Release\\\\uvc_static.tlog\\\\CL.command.1.tlog' -ErrorAction SilentlyContinue | Select-Object -First 1\")",
+      "Bash(cmake --build build --config Release --target uvc_static -- /p:CL_MPCount=1)",
+      "Bash(./QtWidgetsApplication1.exe)",
+      "Bash(grep -E \"\\\\.dll$|\\\\.exe$\")",
+      "Bash(cp \"/d/Qt/6.10.1/msvc2022_64/bin/Qt6Core.dll\" \"/d/Qt/6.10.1/msvc2022_64/bin/Qt6Gui.dll\" \"/d/Qt/6.10.1/msvc2022_64/bin/Qt6Widgets.dll\" \"/d/code-lib/UVC_Camera/QtWidgetsApplication1/x64/Release/\")",
+      "Bash(cp \"/d/Qt/6.10.1/msvc2022_64/plugins/platforms/qwindows.dll\" \"/d/code-lib/UVC_Camera/QtWidgetsApplication1/x64/Release/platforms/\")",
+      "Bash(cmd.exe //c \"d:\\\\code-lib\\\\UVC_Camera\\\\QtWidgetsApplication1\\\\x64\\\\Release\\\\QtWidgetsApplication1.exe & echo Exit code: %ERRORLEVEL%\")",
+      "Bash(grep \"\\\\.dll$\")",
+      "Bash(\"/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/\")",
+      "Bash(cp \"/d/code-lib/UVC_Camera/third_party/CUDA/v12.4/bin/\"*.dll \"/d/code-lib/UVC_Camera/QtWidgetsApplication1/x64/Release/\")",
+      "Bash(cp \"/d/code-lib/UVC_Camera/third_party/CUDNN/v9.17/bin/12.9/\"*.dll \"/d/code-lib/UVC_Camera/QtWidgetsApplication1/x64/Release/\")",
+      "Bash(powershell.exe -Command \"taskkill /F /IM QtWidgetsApplication1.exe 2>&1; Start-Sleep 1\")"
+    ]
+  }
+}

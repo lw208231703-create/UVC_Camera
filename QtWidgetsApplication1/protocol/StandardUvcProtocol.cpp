@@ -1,0 +1,85 @@
+#include "StandardUvcProtocol.h"
+#include "core/ICameraDevice.h"
+#include "infra/LogManager.h"
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc.hpp>
+
+bool StandardUvcProtocol::initialize(ICameraDevice* device) {
+    m_device = device;
+    LOG_INFO("Standard UVC protocol initialized");
+    return true;
+}
+
+std::vector<std::string> StandardUvcProtocol::getSupportedFormats() const {
+    return {"Y800", "Y16", "YUYV", "MJPEG", "RGB"};
+}
+
+bool StandardUvcProtocol::parseFrame(const Frame& raw, ProcessedFrame& processed) {
+    if (!raw.valid || raw.data.empty())
+        return false;
+
+    if (raw.format == "YUYV" || raw.format == "YUY2")
+        return parseYUYV(raw, processed);
+    if (raw.format == "MJPEG" || raw.format == "MJPG")
+        return parseMJPEG(raw, processed);
+    if (raw.format == "Y800" || raw.format == "GRAY8")
+        return parseGray8(raw, processed);
+    if (raw.format == "Y16" || raw.format == "GRAY16")
+        return parseGray16(raw, processed);
+    if (raw.format == "RGB")
+        return parseGray8(raw, processed); // fallback
+
+    LOG_WARNING(QString("Unknown format: %1").arg(QString::fromStdString(raw.format)));
+    return false;
+}
+
+bool StandardUvcProtocol::parseYUYV(const Frame& raw, ProcessedFrame& processed) {
+    cv::Mat yuv(raw.height, raw.width, CV_8UC2, const_cast<uint8_t*>(raw.data.data()));
+    cv::Mat rgb;
+    cv::cvtColor(yuv, rgb, cv::COLOR_YUV2BGR_YUYV);
+
+    processed.width = rgb.cols;
+    processed.height = rgb.rows;
+    processed.cv_type = rgb.type();
+    processed.data.assign(rgb.data, rgb.data + rgb.total() * rgb.elemSize());
+    processed.timestamp_us = raw.timestamp_us;
+    processed.valid = true;
+    return true;
+}
+
+bool StandardUvcProtocol::parseMJPEG(const Frame& raw, ProcessedFrame& processed) {
+    cv::Mat decoded = cv::imdecode(
+        cv::Mat(1, static_cast<int>(raw.data.size()), CV_8UC1,
+                const_cast<uint8_t*>(raw.data.data())),
+        cv::IMREAD_UNCHANGED);
+
+    if (decoded.empty()) return false;
+
+    processed.width = decoded.cols;
+    processed.height = decoded.rows;
+    processed.cv_type = decoded.type();
+    processed.data.assign(decoded.data, decoded.data + decoded.total() * decoded.elemSize());
+    processed.timestamp_us = raw.timestamp_us;
+    processed.valid = true;
+    return true;
+}
+
+bool StandardUvcProtocol::parseGray8(const Frame& raw, ProcessedFrame& processed) {
+    processed.width = raw.width;
+    processed.height = raw.height;
+    processed.cv_type = CV_8UC1;
+    processed.data = raw.data;
+    processed.timestamp_us = raw.timestamp_us;
+    processed.valid = true;
+    return true;
+}
+
+bool StandardUvcProtocol::parseGray16(const Frame& raw, ProcessedFrame& processed) {
+    processed.width = raw.width;
+    processed.height = raw.height;
+    processed.cv_type = CV_16UC1;
+    processed.data = raw.data;
+    processed.timestamp_us = raw.timestamp_us;
+    processed.valid = true;
+    return true;
+}

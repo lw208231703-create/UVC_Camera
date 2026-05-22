@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Release|x64">
@@ -10,8 +10,7 @@
     <ProjectGuid>{37951108-076A-4B09-9F94-F00918978E90}</ProjectGuid>
     <Keyword>QtVS_v304</Keyword>
     <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">10.0</WindowsTargetPlatformVersion>
-    <QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')"
-      >$(MSBuildProjectDirectory)\QtMsBuild</QtMsBuild>
+    <QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')">$(MSBuildProjectDirectory)\QtMsBuild</QtMsBuild>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="Configuration">
@@ -42,9 +41,6 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(QtMsBuild)\Qt.props" />
   </ImportGroup>
-  <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
-  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="Configuration">
     <ClCompile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -53,26 +49,88 @@
       <ConformanceMode>true</ConformanceMode>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\third_party\opencv-4.13.0\opencv-cuda-build-13.1\install\include;$(SolutionDir)..\third_party\libusb\libusb;$(SolutionDir)..\third_party\libusb\msvc;$(SolutionDir)..\third_party\libuvc\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;LIBUSB_WINDOWS_HOTPLUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\third_party\opencv-4.13.0\opencv-cuda-build-13.1\install\x64\vc17\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opencv_world4130.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <QtRcc Include="QtWidgetsApplication1.qrc"/>
-    <QtUic Include="QtWidgetsApplication1.ui"/>
-    <QtMoc Include="QtWidgetsApplication1.h"/>
-    <ClCompile Include="QtWidgetsApplication1.cpp"/>
-    <ClCompile Include="main.cpp"/>
 
+  <ItemGroup>
+    <QtMoc Include="QtWidgetsApplication1.h" />
+    <QtMoc Include="ui\ImageViewport.h" />
+    <QtMoc Include="ui\ControlPanel.h" />
+    <QtMoc Include="hal\LibuvcCameraDevice.h" />
+    <QtMoc Include="hal\DeviceEnumerator.h" />
+    <QtMoc Include="infra\LogManager.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="core\CameraTypes.h" />
+    <ClInclude Include="core\ICameraDevice.h" />
+    <ClInclude Include="core\IProtocolHandler.h" />
+    <ClInclude Include="core\IImageProcessor.h" />
+    <ClInclude Include="infra\ConfigManager.h" />
+    <ClInclude Include="protocol\StandardUvcProtocol.h" />
+    <ClInclude Include="protocol\CustomUvcProtocol.h" />
+    <ClInclude Include="processing\OpenCvImageProcessor.h" />
+  </ItemGroup>
+
+  <!-- App C++ sources -->
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="QtWidgetsApplication1.cpp" />
+    <ClCompile Include="infra\LogManager.cpp" />
+    <ClCompile Include="infra\ConfigManager.cpp" />
+    <ClCompile Include="ui\ImageViewport.cpp" />
+    <ClCompile Include="ui\ControlPanel.cpp" />
+    <ClCompile Include="hal\DeviceEnumerator.cpp" />
+    <ClCompile Include="hal\LibuvcCameraDevice.cpp" />
+    <ClCompile Include="protocol\StandardUvcProtocol.cpp" />
+    <ClCompile Include="protocol\CustomUvcProtocol.cpp" />
+    <ClCompile Include="processing\OpenCvImageProcessor.cpp" />
+  </ItemGroup>
+
+  <!-- libusb C sources (Windows) -->
+  <ItemGroup>
+    <ClCompile Include="..\third_party\libusb\libusb\core.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\descriptor.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\hotplug.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\io.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\strerror.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\sync.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\os\events_windows.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\os\threads_windows.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\os\windows_common.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\os\windows_usbdk.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\os\windows_winusb.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\os\windows_hotplug.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+  </ItemGroup>
+
+  <!-- libuvc C sources -->
+  <ItemGroup>
+    <ClCompile Include="..\third_party\libuvc\src\ctrl.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\ctrl-gen.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\device.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\diag.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\frame.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\init.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\misc.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\stream.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <QtRcc Include="QtWidgetsApplication1.qrc" />
+  </ItemGroup>
+
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">
     <Import Project="$(QtMsBuild)\qt.targets" />
-  </ImportGroup>
-  <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>

@@ -1,48 +1,64 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Source Files">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>qml;cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
     <Filter Include="Header Files">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>qrc;rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Form Files">
-      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
-      <Extensions>ui</Extensions>
+    <Filter Include="Core">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Translation Files">
-      <UniqueIdentifier>{639EADAA-A684-42e4-A9AD-28FC9BCB8F7C}</UniqueIdentifier>
-      <Extensions>ts</Extensions>
+    <Filter Include="HAL">
+      <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Protocol">
+      <UniqueIdentifier>{C3D4E5F6-A7B8-9012-CDEF-123456789012}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Processing">
+      <UniqueIdentifier>{D4E5F6A7-B8C9-0123-DEF1-234567890123}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Infra">
+      <UniqueIdentifier>{E5F6A7B8-C9D0-1234-EF12-345678901234}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI">
+      <UniqueIdentifier>{F6A7B8C9-D0E1-2345-F123-456789012345}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <QtRcc Include="QtWidgetsApplication1.qrc">
-      <Filter>Resource Files</Filter>
-    </QtRcc>
-    <QtUic Include="QtWidgetsApplication1.ui">
-      <Filter>Form Files</Filter>
-    </QtUic>
-    <QtMoc Include="QtWidgetsApplication1.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <ClCompile Include="QtWidgetsApplication1.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ResourceCompile Include="$pro_name$.rc">
-    </ResourceCompile>
-    <None Include="$pro_name$.ico">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="$pro_name$.def">
-      <Filter>Resource Files</Filter>
-    </None>
-
+    <ClCompile Include="main.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="QtWidgetsApplication1.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="infra\LogManager.cpp"><Filter>Infra</Filter></ClCompile>
+    <ClCompile Include="infra\ConfigManager.cpp"><Filter>Infra</Filter></ClCompile>
+    <ClCompile Include="ui\ImageViewport.cpp"><Filter>UI</Filter></ClCompile>
+    <ClCompile Include="ui\ControlPanel.cpp"><Filter>UI</Filter></ClCompile>
+    <ClCompile Include="hal\DeviceEnumerator.cpp"><Filter>HAL</Filter></ClCompile>
+    <ClCompile Include="hal\LibuvcCameraDevice.cpp"><Filter>HAL</Filter></ClCompile>
+    <ClCompile Include="protocol\StandardUvcProtocol.cpp"><Filter>Protocol</Filter></ClCompile>
+    <ClCompile Include="protocol\CustomUvcProtocol.cpp"><Filter>Protocol</Filter></ClCompile>
+    <ClCompile Include="processing\OpenCvImageProcessor.cpp"><Filter>Processing</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="QtWidgetsApplication1.h"><Filter>Header Files</Filter></QtMoc>
+    <QtMoc Include="ui\ImageViewport.h"><Filter>UI</Filter></QtMoc>
+    <QtMoc Include="ui\ControlPanel.h"><Filter>UI</Filter></QtMoc>
+    <QtMoc Include="hal\LibuvcCameraDevice.h"><Filter>HAL</Filter></QtMoc>
+    <QtMoc Include="hal\DeviceEnumerator.h"><Filter>HAL</Filter></QtMoc>
+    <QtMoc Include="infra\LogManager.h"><Filter>Infra</Filter></QtMoc>
+    <ClInclude Include="core\CameraTypes.h"><Filter>Core</Filter></ClInclude>
+    <ClInclude Include="core\ICameraDevice.h"><Filter>Core</Filter></ClInclude>
+    <ClInclude Include="core\IProtocolHandler.h"><Filter>Core</Filter></ClInclude>
+    <ClInclude Include="core\IImageProcessor.h"><Filter>Core</Filter></ClInclude>
+    <ClInclude Include="infra\ConfigManager.h"><Filter>Infra</Filter></ClInclude>
+    <ClInclude Include="protocol\StandardUvcProtocol.h"><Filter>Protocol</Filter></ClInclude>
+    <ClInclude Include="protocol\CustomUvcProtocol.h"><Filter>Protocol</Filter></ClInclude>
+    <ClInclude Include="processing\OpenCvImageProcessor.h"><Filter>Processing</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <QtRcc Include="QtWidgetsApplication1.qrc"><Filter>Resource Files</Filter></QtRcc>
   </ItemGroup>
 </Project>

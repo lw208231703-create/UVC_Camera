@@ -1,0 +1,24 @@
+{
+  "camera": {
+    "type": "libuvc",
+    "device_index": 0,
+    "format": {
+      "width": 1280,
+      "height": 1024,
+      "fourcc": "Y16 "
+    }
+  },
+  "protocol": {
+    "type": "standard",
+    "custom_settings": {}
+  },
+  "image_processor": {
+    "type": "opencv",
+    "filters": [
+      {
+        "name": "gaussian_blur",
+        "params": { "ksize": 5, "sigma": 1.5 }
+      }
+    ]
+  }
+}
