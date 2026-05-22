@@ -50,7 +50,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\third_party\opencv-4.13.0\opencv-cuda-build-13.1\install\include;$(SolutionDir)..\third_party\libusb\libusb;$(SolutionDir)..\third_party\libusb\msvc;$(SolutionDir)..\third_party\libuvc\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\third_party\libusb\libusb;$(SolutionDir)..\third_party\libusb\msvc;$(SolutionDir)..\third_party\libuvc\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;LIBUSB_WINDOWS_HOTPLUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -58,8 +58,7 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\third_party\opencv-4.13.0\opencv-cuda-build-13.1\install\x64\vc17\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opencv_world4130.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
 
@@ -81,7 +80,7 @@
     <ClInclude Include="infra\ConfigManager.h" />
     <ClInclude Include="protocol\StandardUvcProtocol.h" />
     <ClInclude Include="protocol\CustomUvcProtocol.h" />
-    <ClInclude Include="processing\OpenCvImageProcessor.h" />
+
   </ItemGroup>
 
   <!-- App C++ sources -->
@@ -98,7 +97,7 @@
     <ClCompile Include="hal\LibuvcCameraDevice.cpp" />
     <ClCompile Include="protocol\StandardUvcProtocol.cpp" />
     <ClCompile Include="protocol\CustomUvcProtocol.cpp" />
-    <ClCompile Include="processing\OpenCvImageProcessor.cpp" />
+
   </ItemGroup>
 
   <!-- libusb C sources (Windows) -->

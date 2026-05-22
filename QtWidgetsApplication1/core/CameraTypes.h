@@ -4,6 +4,14 @@
 #include <string>
 #include <vector>
 
+// Pixel format constants (replaces OpenCV CV_* types)
+enum PixelFormat {
+    FMT_GRAY8  = 0,   // 8-bit grayscale
+    FMT_GRAY16 = 2,   // 16-bit grayscale
+    FMT_RGB8   = 13,  // 8-bit RGB (3 channels, R-G-B order)
+    FMT_BGR8   = 16,  // 8-bit BGR (3 channels, B-G-R order)
+};
+
 struct CameraFormat {
     uint32_t width = 0;
     uint32_t height = 0;

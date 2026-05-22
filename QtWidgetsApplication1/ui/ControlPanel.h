@@ -28,10 +28,6 @@ public:
     QComboBox* resolutionCombo(){ return m_resolutionCombo; }
     QPushButton* applyBtn()    { return m_applyBtn; }
 
-    // Processing group
-    QCheckBox* gaussianCheck() { return m_gaussianCheck; }
-    QCheckBox* histogramCheck(){ return m_histogramCheck; }
-
     // Capture group
     QPushButton* snapshotBtn() { return m_snapshotBtn; }
     QPushButton* recordBtn()   { return m_recordBtn; }
@@ -60,10 +56,6 @@ private:
     QComboBox*  m_formatCombo;
     QComboBox*  m_resolutionCombo;
     QPushButton* m_applyBtn;
-
-    // Processing
-    QCheckBox*  m_gaussianCheck;
-    QCheckBox*  m_histogramCheck;
 
     // Capture
     QPushButton* m_snapshotBtn;

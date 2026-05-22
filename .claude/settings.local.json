@@ -38,7 +38,22 @@
       "Bash(cp \"/d/code-lib/UVC_Camera/third_party/CUDA/v12.4/bin/\"*.dll \"/d/code-lib/UVC_Camera/QtWidgetsApplication1/x64/Release/\")",
       "Bash(cp \"/d/code-lib/UVC_Camera/third_party/CUDNN/v9.17/bin/12.9/\"*.dll \"/d/code-lib/UVC_Camera/QtWidgetsApplication1/x64/Release/\")",
       "Bash(powershell.exe -Command \"taskkill /F /IM QtWidgetsApplication1.exe 2>&1; Start-Sleep 1\")",
-      "Bash(powershell.exe -Command \"taskkill /F /IM QtWidgetsApplication1.exe 2>&1\")"
+      "Bash(powershell.exe -Command \"taskkill /F /IM QtWidgetsApplication1.exe 2>&1\")",
+      "Bash(mkdir -p \"/d/code-lib/UVC_Camera/QtWidgetsApplication1/x64/Release/imageformats\" 2>/dev/null && cp \"/d/Qt/6.10.1/msvc2022_64/plugins/imageformats/qjpeg.dll\" \"/d/code-lib/UVC_Camera/QtWidgetsApplication1/x64/Release/imageformats/\" 2>&1 && echo \"JPEG plugin copied\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/serge-rgb/nanojpeg/master/nanojpeg.c\" -o \"/d/code-lib/UVC_Camera/third_party/nanojpeg/nanojpeg.c\")",
+      "Bash(curl -sIL \"https://raw.githubusercontent.com/serge-rgb/nanojpeg/master/nanojpeg.c\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/luapower/nanojpeg/master/nanojpeg.c\" -o \"/d/code-lib/UVC_Camera/third_party/nanojpeg/nanojpeg.c\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/luapower/nanojpeg/master/nanojpeg.h\" -o \"/d/code-lib/UVC_Camera/third_party/nanojpeg/nanojpeg.h\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jkriege2/TinyTIFF/master/tinytiffreader.c\" -o \"/d/code-lib/UVC_Camera/third_party/TinyTIFF/tinytiffreader.c\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jkriege2/TinyTIFF/master/tinytiffreader.h\" -o \"/d/code-lib/UVC_Camera/third_party/TinyTIFF/tinytiffreader.h\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jkriege2/TinyTIFF/master/tinytiffwriter.c\" -o \"/d/code-lib/UVC_Camera/third_party/TinyTIFF/tinytiffwriter.c\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jkriege2/TinyTIFF/master/tinytiffwriter.h\" -o \"/d/code-lib/UVC_Camera/third_party/TinyTIFF/tinytiffwriter.h\")",
+      "Bash(powershell.exe -Command \"Get-Process QtWidgetsApplication1 -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 1\")",
+      "Bash(ls \"/d/code-lib/UVC_Camera/third_party/libyuv/\" 2>/dev/null; ls \"/c/Users/admin/Desktop/fsdownload/vcpkg/installed/x64-windows/lib/libyuv*\" 2>/dev/null; echo \"---\"; ls \"/c/Users/admin/Desktop/fsdownload/vcpkg/installed/x64-windows/include/libyuv*\" 2>/dev/null)",
+      "Read(//c/Users/admin/Desktop/fsdownload/vcpkg/installed/x64-windows/include/**)"
+    ],
+    "additionalDirectories": [
+      "D:\\Qt\\6.10.1\\msvc2022_64\\plugins\\imageformats"
     ]
   }
 }

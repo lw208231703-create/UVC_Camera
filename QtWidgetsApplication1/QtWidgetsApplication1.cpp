@@ -7,7 +7,6 @@
 #include "hal/UvcControls.h"
 #include "protocol/StandardUvcProtocol.h"
 #include "protocol/CustomUvcProtocol.h"
-#include "processing/OpenCvImageProcessor.h"
 #include "infra/LogManager.h"
 #include "infra/ConfigManager.h"
 #include "infra/UiStrings.h"
@@ -21,8 +20,6 @@
 #include <QDateTime>
 #include <QCloseEvent>
 #include <QApplication>
-#include <opencv2/opencv.hpp>
-#include <opencv2/imgproc.hpp>
 #include <libuvc/libuvc.h>
 
 QtWidgetsApplication1::QtWidgetsApplication1(QWidget* parent)
@@ -179,16 +176,6 @@ void QtWidgetsApplication1::connectSignals() {
     connect(m_controlPanel->recordBtn(), &QPushButton::toggled,
             this, &QtWidgetsApplication1::onToggleRecord);
 
-    // Processing checkboxes
-    connect(m_controlPanel->gaussianCheck(), &QCheckBox::toggled, [this](bool on) {
-        if (auto* p = dynamic_cast<OpenCvImageProcessor*>(m_processor.get()))
-            p->setGaussianBlur(on);
-    });
-    connect(m_controlPanel->histogramCheck(), &QCheckBox::toggled, [this](bool on) {
-        if (auto* p = dynamic_cast<OpenCvImageProcessor*>(m_processor.get()))
-            p->setHistogramEq(on);
-    });
-
     // Log
     connect(&LogManager::instance(), &LogManager::newEntry, this,
         [this](const LogManager::Entry& entry) {
@@ -239,7 +226,6 @@ void QtWidgetsApplication1::onOpenDevice() {
         stopAll();
         m_camera.reset();
         m_protocol.reset();
-        m_processor.reset();
         m_uvcControls.reset();
         m_controlPanel->cameraSettings()->clearControls();
 
@@ -290,9 +276,6 @@ void QtWidgetsApplication1::onOpenDevice() {
     // Init protocol (default: standard)
     m_protocol = std::make_unique<StandardUvcProtocol>();
     m_protocol->initialize(m_camera.get());
-
-    // Init processor
-    m_processor = std::make_unique<OpenCvImageProcessor>();
 
     // Init UVC controls
     m_uvcControls = std::make_unique<UvcControls>(m_camera->deviceHandle());
@@ -399,25 +382,45 @@ void QtWidgetsApplication1::onApplyStream() {
 void QtWidgetsApplication1::onFrameReady(const Frame& frame) {
     if (!m_streaming) return;
 
+    // Diagnostic: log first few frames
+    if (m_displayFrameCount < 3) {
+        LOG_INFO(QString("[Frame %1] raw: %2 %3x%4 %5 bytes")
+            .arg(m_displayFrameCount)
+            .arg(QString::fromStdString(frame.format))
+            .arg(frame.width).arg(frame.height)
+            .arg(frame.data.size()));
+    }
+
     // Protocol: raw → processed
     ProcessedFrame parsed;
-    if (m_protocol && !m_protocol->parseFrame(frame, parsed))
+    if (m_protocol && !m_protocol->parseFrame(frame, parsed)) {
+        if (m_displayFrameCount < 3)
+            LOG_WARNING(QString("[Frame %1] parse failed for format %2")
+                .arg(m_displayFrameCount)
+                .arg(QString::fromStdString(frame.format)));
         return;
+    }
     if (!m_protocol)
         parsed = {}; // shouldn't happen
 
-    // Processor: apply filters
-    ProcessedFrame filtered;
-    if (m_processor) {
-        m_processor->process(m_protocol ? parsed : ProcessedFrame{}, filtered);
-    } else if (m_protocol) {
-        filtered = parsed;
+    if (!parsed.valid) {
+        if (m_displayFrameCount < 3)
+            LOG_WARNING(QString("[Frame %1] parsed frame invalid").arg(m_displayFrameCount));
+        return;
     }
 
-    if (!filtered.valid) return;
+    // Keep last frame for snapshot
+    m_lastFrame = parsed;
+
+    if (m_displayFrameCount < 3)
+        LOG_INFO(QString("[Frame %1] parsed: type=%2 %3x%4 %5 bytes")
+            .arg(m_displayFrameCount)
+            .arg(parsed.cv_type)
+            .arg(parsed.width).arg(parsed.height)
+            .arg(parsed.data.size()));
 
     // Convert to QImage and display
-    QImage img = frameToQImage(filtered);
+    QImage img = frameToQImage(parsed);
     if (!img.isNull()) {
         m_viewport->setImage(img);
 
@@ -442,55 +445,65 @@ void QtWidgetsApplication1::onFrameReady(const Frame& frame) {
 QImage QtWidgetsApplication1::frameToQImage(const ProcessedFrame& frame) {
     if (!frame.valid || frame.data.empty()) return {};
 
-    QImage::Format qfmt = QImage::Format_Grayscale8;
-    int cvType = frame.cv_type;
+    int w = static_cast<int>(frame.width);
+    int h = static_cast<int>(frame.height);
 
-    if (cvType == CV_8UC1) {
-        qfmt = QImage::Format_Grayscale8;
-    } else if (cvType == CV_16UC1) {
-        // Normalize 16-bit to 8-bit for display
-        cv::Mat mat16(frame.height, frame.width, CV_16UC1,
-                      const_cast<uint8_t*>(frame.data.data()));
-        cv::Mat mat8;
-        double minV, maxV;
-        cv::minMaxLoc(mat16, &minV, &maxV);
-        if (maxV > 255) {
-            mat16.convertTo(mat8, CV_8UC1, 255.0 / maxV);
-        } else {
-            mat16.convertTo(mat8, CV_8UC1);
+    if (frame.cv_type == FMT_RGB8) {
+        // RGB888 data → QImage (zero-copy, then detach)
+        return QImage(frame.data.data(), w, h, QImage::Format_RGB888).copy();
+
+    } else if (frame.cv_type == FMT_GRAY16) {
+        // 16-bit grayscale → normalize to 8-bit for display
+        auto* src16 = reinterpret_cast<const uint16_t*>(frame.data.data());
+        size_t n = static_cast<size_t>(w) * h;
+        uint16_t minV = 65535, maxV = 0;
+        for (size_t i = 0; i < n; i++) {
+            if (src16[i] < minV) minV = src16[i];
+            if (src16[i] > maxV) maxV = src16[i];
         }
-        return QImage(mat8.data, mat8.cols, mat8.rows, mat8.step,
-                      QImage::Format_Grayscale8).copy();
-    } else if (cvType == CV_8UC3) {
-        cv::Mat mat(frame.height, frame.width, CV_8UC3,
-                    const_cast<uint8_t*>(frame.data.data()));
-        cv::Mat rgb;
-        cv::cvtColor(mat, rgb, cv::COLOR_BGR2RGB);
-        return QImage(rgb.data, rgb.cols, rgb.rows, rgb.step,
-                      QImage::Format_RGB888).copy();
-    } else {
-        // Fallback: try as 8-bit grayscale
-        return QImage(frame.data.data(), frame.width, frame.height,
-                      QImage::Format_Grayscale8).copy();
-    }
+        std::vector<uint8_t> buf8(n);
+        double scale = (maxV > minV) ? 255.0 / (maxV - minV) : 1.0;
+        for (size_t i = 0; i < n; i++)
+            buf8[i] = static_cast<uint8_t>((src16[i] - minV) * scale);
 
-    QImage img(frame.data.data(), frame.width, frame.height, qfmt);
-    return img.copy();
+        return QImage(buf8.data(), w, h, QImage::Format_Grayscale8).copy();
+
+    } else {
+        // FMT_GRAY8 or unknown → grayscale passthrough
+        return QImage(frame.data.data(), w, h, QImage::Format_Grayscale8).copy();
+    }
 }
 
 // ── Snapshot & Recording ──
 
 void QtWidgetsApplication1::onSnapshot() {
-    if (!m_viewport->hasImage()) return;
+    if (!m_lastFrame.valid) return;
 
-    QString filename = QString("snapshot_%1.png")
-        .arg(QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss"));
-    // Grab the current display pixmap
-    QPixmap current = m_viewport->grab();
-    current.save(filename, "PNG");
+    QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss");
+    int w = static_cast<int>(m_lastFrame.width);
+    int h = static_cast<int>(m_lastFrame.height);
 
+    if (m_lastFrame.cv_type == FMT_GRAY16) {
+        // 16-bit grayscale → save as TIFF to preserve bit depth
+        auto* src16 = reinterpret_cast<const uint16_t*>(m_lastFrame.data.data());
+        QImage img(w, h, QImage::Format_Grayscale16);
+        for (int y = 0; y < h; y++) {
+            auto* dst = reinterpret_cast<uint16_t*>(img.scanLine(y));
+            memcpy(dst, src16 + y * w, w * sizeof(uint16_t));
+        }
+        QString filename = QString("snapshot_%1.tiff").arg(ts);
+        img.save(filename, "TIFF");
+        LOG_INFO(QString("Snapshot saved: %1 (16-bit TIFF)").arg(filename));
+    } else {
+        // 8-bit → save as PNG
+        QImage img(m_lastFrame.data.data(), w, h,
+                   m_lastFrame.cv_type == FMT_RGB8 ? QImage::Format_RGB888
+                                                   : QImage::Format_Grayscale8);
+        QString filename = QString("snapshot_%1.png").arg(ts);
+        img.copy().save(filename, "PNG");
+        LOG_INFO(QString("Snapshot saved: %1 (PNG)").arg(filename));
+    }
     m_snapshotCounter++;
-    LOG_INFO(QString("Snapshot saved: %1").arg(filename));
 }
 
 void QtWidgetsApplication1::onToggleRecord(bool start) {

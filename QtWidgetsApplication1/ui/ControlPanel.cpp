@@ -76,20 +76,6 @@ ControlPanel::ControlPanel(QWidget* parent)
         mainLayout->addWidget(makeGroup(TR("Format & Stream"), grpLayout));
     }
 
-    // ── Processing group ──
-    {
-        m_gaussianCheck = new QCheckBox(TR("Gaussian Blur"));
-        m_gaussianCheck->setEnabled(false);
-        m_histogramCheck = new QCheckBox(TR("Histogram Equalization"));
-        m_histogramCheck->setEnabled(false);
-
-        auto* procLayout = new QVBoxLayout;
-        procLayout->addWidget(m_gaussianCheck);
-        procLayout->addWidget(m_histogramCheck);
-
-        mainLayout->addWidget(makeGroup(TR("Image Processing (OpenCV)"), procLayout));
-    }
-
     // ── Capture group ──
     {
         m_snapshotBtn = new QPushButton(TR("Snapshot"));
@@ -181,8 +167,6 @@ void ControlPanel::setStreaming(bool streaming) {
     m_formatCombo->setEnabled(!streaming);
     m_resolutionCombo->setEnabled(!streaming);
 
-    m_gaussianCheck->setEnabled(streaming);
-    m_histogramCheck->setEnabled(streaming);
     m_snapshotBtn->setEnabled(streaming);
     m_recordBtn->setEnabled(streaming);
 

@@ -1,8 +1,9 @@
 #include "StandardUvcProtocol.h"
 #include "core/ICameraDevice.h"
 #include "infra/LogManager.h"
-#include <opencv2/opencv.hpp>
-#include <opencv2/imgproc.hpp>
+#include "core/CameraTypes.h"
+#include <QImage>
+#include <libyuv.h>
 
 bool StandardUvcProtocol::initialize(ICameraDevice* device) {
     m_device = device;
@@ -27,47 +28,69 @@ bool StandardUvcProtocol::parseFrame(const Frame& raw, ProcessedFrame& processed
     if (raw.format == "Y16" || raw.format == "GRAY16")
         return parseGray16(raw, processed);
     if (raw.format == "RGB")
-        return parseGray8(raw, processed); // fallback
+        return parseGray8(raw, processed);
 
     LOG_WARNING(QString("Unknown format: %1").arg(QString::fromStdString(raw.format)));
     return false;
 }
 
-bool StandardUvcProtocol::parseYUYV(const Frame& raw, ProcessedFrame& processed) {
-    cv::Mat yuv(raw.height, raw.width, CV_8UC2, const_cast<uint8_t*>(raw.data.data()));
-    cv::Mat rgb;
-    cv::cvtColor(yuv, rgb, cv::COLOR_YUV2BGR_YUYV);
+// ── YUYV → RGB via libyuv (SIMD-accelerated when available) ──
 
-    processed.width = rgb.cols;
-    processed.height = rgb.rows;
-    processed.cv_type = rgb.type();
-    processed.data.assign(rgb.data, rgb.data + rgb.total() * rgb.elemSize());
+bool StandardUvcProtocol::parseYUYV(const Frame& raw, ProcessedFrame& processed) {
+    int w = static_cast<int>(raw.width);
+    int h = static_cast<int>(raw.height);
+
+    // Step 1: YUY2 → ARGB (libyuv outputs BGRA in memory on little-endian)
+    size_t argbSize = w * h * 4;
+    m_tempBuf.resize(argbSize + w * h * 3);
+
+    uint8_t* argb = m_tempBuf.data();
+    uint8_t* rgb  = argb + argbSize;
+
+    libyuv::YUY2ToARGB(raw.data.data(), w * 2,
+                       argb, w * 4,
+                       w, h);
+
+    // Step 2: ARGB → RGB24 (drop alpha channel)
+    libyuv::ARGBToRGB24(argb, w * 4,
+                        rgb, w * 3,
+                        w, h);
+
+    size_t rgbSize = w * h * 3;
+    processed.data.assign(rgb, rgb + rgbSize);
+    processed.width = raw.width;
+    processed.height = raw.height;
+    processed.cv_type = FMT_RGB8;
     processed.timestamp_us = raw.timestamp_us;
     processed.valid = true;
     return true;
 }
+
+// ── MJPEG → RGB via QImage ──
 
 bool StandardUvcProtocol::parseMJPEG(const Frame& raw, ProcessedFrame& processed) {
-    cv::Mat decoded = cv::imdecode(
-        cv::Mat(1, static_cast<int>(raw.data.size()), CV_8UC1,
-                const_cast<uint8_t*>(raw.data.data())),
-        cv::IMREAD_UNCHANGED);
+    QImage img;
+    if (!img.loadFromData(raw.data.data(), (int)raw.data.size(), "JPEG"))
+        return false;
 
-    if (decoded.empty()) return false;
+    if (img.format() != QImage::Format_RGB888)
+        img = img.convertToFormat(QImage::Format_RGB888);
 
-    processed.width = decoded.cols;
-    processed.height = decoded.rows;
-    processed.cv_type = decoded.type();
-    processed.data.assign(decoded.data, decoded.data + decoded.total() * decoded.elemSize());
+    processed.width  = img.width();
+    processed.height = img.height();
+    processed.cv_type = FMT_RGB8;
+    processed.data.assign(img.constBits(), img.constBits() + img.sizeInBytes());
     processed.timestamp_us = raw.timestamp_us;
     processed.valid = true;
     return true;
 }
+
+// ── Grayscale passthrough ──
 
 bool StandardUvcProtocol::parseGray8(const Frame& raw, ProcessedFrame& processed) {
     processed.width = raw.width;
     processed.height = raw.height;
-    processed.cv_type = CV_8UC1;
+    processed.cv_type = FMT_GRAY8;
     processed.data = raw.data;
     processed.timestamp_us = raw.timestamp_us;
     processed.valid = true;
@@ -77,7 +100,7 @@ bool StandardUvcProtocol::parseGray8(const Frame& raw, ProcessedFrame& processed
 bool StandardUvcProtocol::parseGray16(const Frame& raw, ProcessedFrame& processed) {
     processed.width = raw.width;
     processed.height = raw.height;
-    processed.cv_type = CV_16UC1;
+    processed.cv_type = FMT_GRAY16;
     processed.data = raw.data;
     processed.timestamp_us = raw.timestamp_us;
     processed.valid = true;

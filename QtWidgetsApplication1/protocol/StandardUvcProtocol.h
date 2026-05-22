@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/IProtocolHandler.h"
+#include <vector>
 
 class StandardUvcProtocol : public IProtocolHandler {
 public:
@@ -16,4 +17,5 @@ private:
     bool parseGray16(const Frame& raw, ProcessedFrame& processed);
 
     ICameraDevice* m_device = nullptr;
+    std::vector<uint8_t> m_tempBuf;  // libyuv temporary buffer
 };

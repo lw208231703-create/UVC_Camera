@@ -12,11 +12,8 @@ class ImageViewport;
 class ControlPanel;
 class LibuvcCameraDevice;
 class IProtocolHandler;
-class IImageProcessor;
 
-struct CameraFormat;
-struct Frame;
-struct ProcessedFrame;
+#include "core/CameraTypes.h"
 
 class QtWidgetsApplication1 : public QMainWindow {
     Q_OBJECT
@@ -67,13 +64,13 @@ private:
 
     // Protocol & processing
     std::unique_ptr<IProtocolHandler> m_protocol;
-    std::unique_ptr<IImageProcessor>  m_processor;
     std::unique_ptr<class UvcControls> m_uvcControls;
 
     // State
     bool m_deviceOpen = false;
     bool m_streaming = false;
     bool m_recording = false;
+    ProcessedFrame m_lastFrame;
 
     // Stats
     QTimer*         m_statsTimer;

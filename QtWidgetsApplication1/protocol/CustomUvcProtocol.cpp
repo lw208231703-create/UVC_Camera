@@ -1,7 +1,7 @@
 #include "CustomUvcProtocol.h"
 #include "core/ICameraDevice.h"
 #include "infra/LogManager.h"
-#include <opencv2/core.hpp>
+#include "core/CameraTypes.h"
 
 bool CustomUvcProtocol::initialize(ICameraDevice* device) {
     m_device = device;
@@ -66,7 +66,7 @@ bool CustomUvcProtocol::parse12Bit(const Frame& raw, ProcessedFrame& processed) 
         reinterpret_cast<uint8_t*>(m_pixelBuffer.data() + pixelCount));
     processed.width = raw.width;
     processed.height = raw.height;
-    processed.cv_type = CV_16UC1;
+    processed.cv_type = FMT_GRAY16;
     processed.timestamp_us = raw.timestamp_us;
     processed.valid = true;
     return true;
@@ -116,7 +116,7 @@ bool CustomUvcProtocol::parse14Bit(const Frame& raw, ProcessedFrame& processed) 
         reinterpret_cast<uint8_t*>(m_pixelBuffer.data() + pixelCount));
     processed.width = raw.width;
     processed.height = raw.height;
-    processed.cv_type = CV_16UC1;
+    processed.cv_type = FMT_GRAY16;
     processed.timestamp_us = raw.timestamp_us;
     processed.valid = true;
     return true;
