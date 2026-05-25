@@ -56,6 +56,8 @@ inline QString uiTr(const char* key) {
         {"Record Sequence",     "连续录制"},
         {"Stop Recording",      "停止录制"},
         {"System Log",          "系统日志"},
+        {"16-bit Display",      "16位深度显示"},
+        {"Shift:",              "偏移："},
         {"-- Select --",        "-- 请选择 --"},
         {"-- No UVC devices found --","-- 未发现 UVC 设备 --"},
 

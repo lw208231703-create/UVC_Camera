@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include <QCheckBox>
 #include <QLabel>
+#include <QSlider>
 #include <QGroupBox>
 #include <QTextEdit>
 #include <QVBoxLayout>
@@ -38,6 +39,9 @@ public:
     // Camera settings
     CameraSettingsWidget* cameraSettings() { return m_cameraSettings; }
 
+    // 16-bit shift slider
+    QSlider* bitShiftSlider() { return m_bitShiftSlider; }
+
     void setDeviceOpen(bool open);
     void setStreaming(bool streaming);
 
@@ -66,4 +70,8 @@ private:
 
     // Camera settings
     CameraSettingsWidget* m_cameraSettings;
+
+    // Bit-depth shift
+    QSlider* m_bitShiftSlider;
+    QLabel*  m_bitShiftLabel;
 };

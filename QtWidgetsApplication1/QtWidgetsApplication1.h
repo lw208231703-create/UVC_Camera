@@ -71,6 +71,7 @@ private:
     bool m_streaming = false;
     bool m_recording = false;
     ProcessedFrame m_lastFrame;
+    int m_bitShift = 8;  // 16-bit display: bit shift (8=MSB, 0=LSB)
 
     // Stats
     QTimer*         m_statsTimer;

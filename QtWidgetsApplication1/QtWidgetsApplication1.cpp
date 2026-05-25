@@ -21,6 +21,8 @@
 #include <QCloseEvent>
 #include <QApplication>
 #include <libuvc/libuvc.h>
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc.hpp>
 
 QtWidgetsApplication1::QtWidgetsApplication1(QWidget* parent)
     : QMainWindow(parent)
@@ -175,6 +177,10 @@ void QtWidgetsApplication1::connectSignals() {
             this, &QtWidgetsApplication1::onSnapshot);
     connect(m_controlPanel->recordBtn(), &QPushButton::toggled,
             this, &QtWidgetsApplication1::onToggleRecord);
+
+    // 16-bit shift
+    connect(m_controlPanel->bitShiftSlider(), &QSlider::valueChanged,
+            this, [this](int val) { m_bitShift = val; });
 
     // Log
     connect(&LogManager::instance(), &LogManager::newEntry, this,
@@ -448,61 +454,49 @@ QImage QtWidgetsApplication1::frameToQImage(const ProcessedFrame& frame) {
     int w = static_cast<int>(frame.width);
     int h = static_cast<int>(frame.height);
 
-    if (frame.cv_type == FMT_RGB8) {
-        // RGB888 data → QImage (zero-copy, then detach)
-        return QImage(frame.data.data(), w, h, QImage::Format_RGB888).copy();
+    if (frame.cv_type == CV_8UC3) {
+        // BGR (OpenCV default) → RGB for QImage
+        cv::Mat bgr(h, w, CV_8UC3, const_cast<uint8_t*>(frame.data.data()));
+        cv::Mat rgb;
+        cv::cvtColor(bgr, rgb, cv::COLOR_BGR2RGB);
+        return QImage(rgb.data, rgb.cols, rgb.rows, rgb.step,
+                      QImage::Format_RGB888).copy();
 
-    } else if (frame.cv_type == FMT_GRAY16) {
-        // 16-bit grayscale → normalize to 8-bit for display
+    } else if (frame.cv_type == CV_16UC1) {
+        // 16-bit → extract 8-bit slice per slider position
         auto* src16 = reinterpret_cast<const uint16_t*>(frame.data.data());
         size_t n = static_cast<size_t>(w) * h;
-        uint16_t minV = 65535, maxV = 0;
-        for (size_t i = 0; i < n; i++) {
-            if (src16[i] < minV) minV = src16[i];
-            if (src16[i] > maxV) maxV = src16[i];
-        }
+        int shift = m_bitShift;
         std::vector<uint8_t> buf8(n);
-        double scale = (maxV > minV) ? 255.0 / (maxV - minV) : 1.0;
         for (size_t i = 0; i < n; i++)
-            buf8[i] = static_cast<uint8_t>((src16[i] - minV) * scale);
-
+            buf8[i] = static_cast<uint8_t>((src16[i] >> shift) & 0xFF);
         return QImage(buf8.data(), w, h, QImage::Format_Grayscale8).copy();
 
     } else {
-        // FMT_GRAY8 or unknown → grayscale passthrough
+        // CV_8UC1 or unknown → grayscale passthrough
         return QImage(frame.data.data(), w, h, QImage::Format_Grayscale8).copy();
     }
 }
 
-// ── Snapshot & Recording ──
+// ── Snapshot (all formats → TIFF via cv::imwrite) ──
 
 void QtWidgetsApplication1::onSnapshot() {
     if (!m_lastFrame.valid) return;
 
     QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss");
+    QString filename = QString("snapshot_%1.tiff").arg(ts);
+
     int w = static_cast<int>(m_lastFrame.width);
     int h = static_cast<int>(m_lastFrame.height);
 
-    if (m_lastFrame.cv_type == FMT_GRAY16) {
-        // 16-bit grayscale → save as TIFF to preserve bit depth
-        auto* src16 = reinterpret_cast<const uint16_t*>(m_lastFrame.data.data());
-        QImage img(w, h, QImage::Format_Grayscale16);
-        for (int y = 0; y < h; y++) {
-            auto* dst = reinterpret_cast<uint16_t*>(img.scanLine(y));
-            memcpy(dst, src16 + y * w, w * sizeof(uint16_t));
-        }
-        QString filename = QString("snapshot_%1.tiff").arg(ts);
-        img.save(filename, "TIFF");
-        LOG_INFO(QString("Snapshot saved: %1 (16-bit TIFF)").arg(filename));
-    } else {
-        // 8-bit → save as PNG
-        QImage img(m_lastFrame.data.data(), w, h,
-                   m_lastFrame.cv_type == FMT_RGB8 ? QImage::Format_RGB888
-                                                   : QImage::Format_Grayscale8);
-        QString filename = QString("snapshot_%1.png").arg(ts);
-        img.copy().save(filename, "PNG");
-        LOG_INFO(QString("Snapshot saved: %1 (PNG)").arg(filename));
-    }
+    cv::Mat img(h, w, m_lastFrame.cv_type,
+                const_cast<uint8_t*>(m_lastFrame.data.data()));
+    cv::imwrite(filename.toStdString(), img);
+
+    const char* desc = (m_lastFrame.cv_type == CV_16UC1) ? "16-bit TIFF"
+                     : (m_lastFrame.cv_type == CV_8UC3)  ? "BGR TIFF"
+                     : "Grayscale TIFF";
+    LOG_INFO(QString("Snapshot saved: %1 (%2)").arg(filename, desc));
     m_snapshotCounter++;
 }
 
