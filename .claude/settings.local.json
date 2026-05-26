@@ -50,7 +50,9 @@
       "Bash(curl -sL \"https://raw.githubusercontent.com/jkriege2/TinyTIFF/master/tinytiffwriter.h\" -o \"/d/code-lib/UVC_Camera/third_party/TinyTIFF/tinytiffwriter.h\")",
       "Bash(powershell.exe -Command \"Get-Process QtWidgetsApplication1 -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 1\")",
       "Bash(ls \"/d/code-lib/UVC_Camera/third_party/libyuv/\" 2>/dev/null; ls \"/c/Users/admin/Desktop/fsdownload/vcpkg/installed/x64-windows/lib/libyuv*\" 2>/dev/null; echo \"---\"; ls \"/c/Users/admin/Desktop/fsdownload/vcpkg/installed/x64-windows/include/libyuv*\" 2>/dev/null)",
-      "Read(//c/Users/admin/Desktop/fsdownload/vcpkg/installed/x64-windows/include/**)"
+      "Read(//c/Users/admin/Desktop/fsdownload/vcpkg/installed/x64-windows/include/**)",
+      "Bash(\"/d/Program Files/Wireshark/tshark\" -D)",
+      "Bash(\"/d/Program Files/Wireshark/tshark\" -i \\\\\\\\.\\\\USBPcap1 -c 1)"
     ],
     "additionalDirectories": [
       "D:\\Qt\\6.10.1\\msvc2022_64\\plugins\\imageformats"
