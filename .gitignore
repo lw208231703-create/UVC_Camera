@@ -76,3 +76,5 @@ ehthumbs.db
 desktop.ini
 #忽略设计文档
 *.md
+#忽略日志文件
+/log
