@@ -198,6 +198,7 @@ void ControlPanel::setDeviceOpen(bool open) {
 void ControlPanel::setStreaming(bool streaming) {
     m_formatCombo->setEnabled(!streaming);
     m_resolutionCombo->setEnabled(!streaming);
+    m_openBtn->setEnabled(!streaming);
 
     m_snapshotBtn->setEnabled(streaming);
     m_recordBtn->setEnabled(streaming);
