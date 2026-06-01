@@ -15,7 +15,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
@@ -29,11 +29,8 @@
     <QtModules>core;gui;widgets</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
-  <Target Name="QtMsBuildNotFound"
-    BeforeTargets="CustomBuild;ClCompile"
-    Condition="!Exists('$(QtMsBuild)\qt.targets') or !Exists('$(QtMsBuild)\qt.props')">
-    <Message Importance="High"
-      Text="QtMsBuild: could not locate qt.targets, qt.props; project may not build correctly." />
+  <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') or !Exists('$(QtMsBuild)\qt.props')">
+    <Message Importance="High" Text="QtMsBuild: could not locate qt.targets, qt.props; project may not build correctly." />
   </Target>
   <ImportGroup Label="ExtensionSettings" />
   <ImportGroup Label="Shared" />
@@ -62,7 +59,6 @@
       <AdditionalDependencies>opencv_world4140.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
-
   <ItemGroup>
     <QtMoc Include="QtWidgetsApplication1.h" />
     <QtMoc Include="ui\ImageViewport.h" />
@@ -81,9 +77,7 @@
     <ClInclude Include="infra\ConfigManager.h" />
     <ClInclude Include="protocol\StandardUvcProtocol.h" />
     <ClInclude Include="protocol\CustomUvcProtocol.h" />
-
   </ItemGroup>
-
   <!-- App C++ sources -->
   <ItemGroup>
     <ClCompile Include="main.cpp" />
@@ -98,41 +92,76 @@
     <ClCompile Include="hal\LibuvcCameraDevice.cpp" />
     <ClCompile Include="protocol\StandardUvcProtocol.cpp" />
     <ClCompile Include="protocol\CustomUvcProtocol.cpp" />
-
   </ItemGroup>
-
   <!-- libusb C sources (Windows) -->
   <ItemGroup>
-    <ClCompile Include="..\third_party\libusb\libusb\core.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libusb\libusb\descriptor.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libusb\libusb\hotplug.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libusb\libusb\io.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libusb\libusb\strerror.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libusb\libusb\sync.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libusb\libusb\os\events_windows.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libusb\libusb\os\threads_windows.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libusb\libusb\os\windows_common.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libusb\libusb\os\windows_usbdk.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libusb\libusb\os\windows_winusb.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libusb\libusb\os\windows_hotplug.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\core.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\descriptor.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\hotplug.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\io.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\strerror.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\sync.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\os\events_windows.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\os\threads_windows.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\os\windows_common.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\os\windows_usbdk.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\os\windows_winusb.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libusb\libusb\os\windows_hotplug.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
   </ItemGroup>
-
   <!-- libuvc C sources -->
   <ItemGroup>
-    <ClCompile Include="..\third_party\libuvc\src\ctrl.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libuvc\src\ctrl-gen.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libuvc\src\device.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libuvc\src\diag.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libuvc\src\frame.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libuvc\src\init.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libuvc\src\misc.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
-    <ClCompile Include="..\third_party\libuvc\src\stream.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\ctrl.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\ctrl-gen.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\device.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\diag.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\frame.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\init.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\misc.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\third_party\libuvc\src\stream.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
   </ItemGroup>
-
   <ItemGroup>
     <QtRcc Include="QtWidgetsApplication1.qrc" />
   </ItemGroup>
-
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">
     <Import Project="$(QtMsBuild)\qt.targets" />
