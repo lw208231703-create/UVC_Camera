@@ -30,35 +30,107 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="QtWidgetsApplication1.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="infra\LogManager.cpp"><Filter>Infra</Filter></ClCompile>
-    <ClCompile Include="infra\ConfigManager.cpp"><Filter>Infra</Filter></ClCompile>
-    <ClCompile Include="ui\ImageViewport.cpp"><Filter>UI</Filter></ClCompile>
-    <ClCompile Include="ui\ControlPanel.cpp"><Filter>UI</Filter></ClCompile>
-    <ClCompile Include="hal\DeviceEnumerator.cpp"><Filter>HAL</Filter></ClCompile>
-    <ClCompile Include="hal\LibuvcCameraDevice.cpp"><Filter>HAL</Filter></ClCompile>
-    <ClCompile Include="protocol\StandardUvcProtocol.cpp"><Filter>Protocol</Filter></ClCompile>
-    <ClCompile Include="protocol\CustomUvcProtocol.cpp"><Filter>Protocol</Filter></ClCompile>
-    <ClCompile Include="processing\OpenCvImageProcessor.cpp"><Filter>Processing</Filter></ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="QtWidgetsApplication1.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="infra\LogManager.cpp">
+      <Filter>Infra</Filter>
+    </ClCompile>
+    <ClCompile Include="infra\ConfigManager.cpp">
+      <Filter>Infra</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\ImageViewport.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\ControlPanel.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="hal\DeviceEnumerator.cpp">
+      <Filter>HAL</Filter>
+    </ClCompile>
+    <ClCompile Include="hal\LibuvcCameraDevice.cpp">
+      <Filter>HAL</Filter>
+    </ClCompile>
+    <ClCompile Include="protocol\StandardUvcProtocol.cpp">
+      <Filter>Protocol</Filter>
+    </ClCompile>
+    <ClCompile Include="protocol\CustomUvcProtocol.cpp">
+      <Filter>Protocol</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\CameraSettingsWidget.cpp" />
+    <ClCompile Include="hal\UvcControls.cpp" />
+    <ClCompile Include="..\third_party\libusb\libusb\core.c" />
+    <ClCompile Include="..\third_party\libusb\libusb\descriptor.c" />
+    <ClCompile Include="..\third_party\libusb\libusb\hotplug.c" />
+    <ClCompile Include="..\third_party\libusb\libusb\io.c" />
+    <ClCompile Include="..\third_party\libusb\libusb\strerror.c" />
+    <ClCompile Include="..\third_party\libusb\libusb\sync.c" />
+    <ClCompile Include="..\third_party\libusb\libusb\os\events_windows.c" />
+    <ClCompile Include="..\third_party\libusb\libusb\os\threads_windows.c" />
+    <ClCompile Include="..\third_party\libusb\libusb\os\windows_common.c" />
+    <ClCompile Include="..\third_party\libusb\libusb\os\windows_usbdk.c" />
+    <ClCompile Include="..\third_party\libusb\libusb\os\windows_winusb.c" />
+    <ClCompile Include="..\third_party\libusb\libusb\os\windows_hotplug.c" />
+    <ClCompile Include="..\third_party\libuvc\src\ctrl.c" />
+    <ClCompile Include="..\third_party\libuvc\src\ctrl-gen.c" />
+    <ClCompile Include="..\third_party\libuvc\src\device.c" />
+    <ClCompile Include="..\third_party\libuvc\src\diag.c" />
+    <ClCompile Include="..\third_party\libuvc\src\frame.c" />
+    <ClCompile Include="..\third_party\libuvc\src\init.c" />
+    <ClCompile Include="..\third_party\libuvc\src\misc.c" />
+    <ClCompile Include="..\third_party\libuvc\src\stream.c" />
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="QtWidgetsApplication1.h"><Filter>Header Files</Filter></QtMoc>
-    <QtMoc Include="ui\ImageViewport.h"><Filter>UI</Filter></QtMoc>
-    <QtMoc Include="ui\ControlPanel.h"><Filter>UI</Filter></QtMoc>
-    <QtMoc Include="hal\LibuvcCameraDevice.h"><Filter>HAL</Filter></QtMoc>
-    <QtMoc Include="hal\DeviceEnumerator.h"><Filter>HAL</Filter></QtMoc>
-    <QtMoc Include="infra\LogManager.h"><Filter>Infra</Filter></QtMoc>
-    <ClInclude Include="core\CameraTypes.h"><Filter>Core</Filter></ClInclude>
-    <ClInclude Include="core\ICameraDevice.h"><Filter>Core</Filter></ClInclude>
-    <ClInclude Include="core\IProtocolHandler.h"><Filter>Core</Filter></ClInclude>
-    <ClInclude Include="core\IImageProcessor.h"><Filter>Core</Filter></ClInclude>
-    <ClInclude Include="infra\ConfigManager.h"><Filter>Infra</Filter></ClInclude>
-    <ClInclude Include="protocol\StandardUvcProtocol.h"><Filter>Protocol</Filter></ClInclude>
-    <ClInclude Include="protocol\CustomUvcProtocol.h"><Filter>Protocol</Filter></ClInclude>
-    <ClInclude Include="processing\OpenCvImageProcessor.h"><Filter>Processing</Filter></ClInclude>
+    <QtMoc Include="QtWidgetsApplication1.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="ui\ImageViewport.h">
+      <Filter>UI</Filter>
+    </QtMoc>
+    <QtMoc Include="ui\ControlPanel.h">
+      <Filter>UI</Filter>
+    </QtMoc>
+    <QtMoc Include="hal\LibuvcCameraDevice.h">
+      <Filter>HAL</Filter>
+    </QtMoc>
+    <QtMoc Include="hal\DeviceEnumerator.h">
+      <Filter>HAL</Filter>
+    </QtMoc>
+    <QtMoc Include="infra\LogManager.h">
+      <Filter>Infra</Filter>
+    </QtMoc>
+    <ClInclude Include="core\CameraTypes.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\ICameraDevice.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\IProtocolHandler.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\IImageProcessor.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="infra\ConfigManager.h">
+      <Filter>Infra</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol\StandardUvcProtocol.h">
+      <Filter>Protocol</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol\CustomUvcProtocol.h">
+      <Filter>Protocol</Filter>
+    </ClInclude>
+    <QtMoc Include="ui\CameraSettingsWidget.h" />
   </ItemGroup>
   <ItemGroup>
-    <QtRcc Include="QtWidgetsApplication1.qrc"><Filter>Resource Files</Filter></QtRcc>
+    <QtRcc Include="QtWidgetsApplication1.qrc">
+      <Filter>Resource Files</Filter>
+    </QtRcc>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="hal\UvcControls.h" />
   </ItemGroup>
 </Project>
