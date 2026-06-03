@@ -455,6 +455,13 @@ QImage QtWidgetsApplication1::frameToQImage(const ProcessedFrame& frame) {
     int h = static_cast<int>(frame.height);
 
     if (frame.cv_type == CV_8UC3) {
+        // 校验缓冲区完整性
+        size_t expected = static_cast<size_t>(w) * h * 3;
+        if (frame.data.size() < expected) {
+            LOG_WARNING(QString("frameToQImage: CV_8UC3 data truncated, expected %1, got %2")
+                .arg(expected).arg(frame.data.size()));
+            return {};
+        }
         // BGR (OpenCV default) → RGB for QImage
         cv::Mat bgr(h, w, CV_8UC3, const_cast<uint8_t*>(frame.data.data()));
         cv::Mat rgb;
@@ -463,6 +470,13 @@ QImage QtWidgetsApplication1::frameToQImage(const ProcessedFrame& frame) {
                       QImage::Format_RGB888).copy();
 
     } else if (frame.cv_type == CV_16UC1) {
+        // 校验缓冲区完整性
+        size_t expected = static_cast<size_t>(w) * h * 2;
+        if (frame.data.size() < expected) {
+            LOG_WARNING(QString("frameToQImage: CV_16UC1 data truncated, expected %1, got %2")
+                .arg(expected).arg(frame.data.size()));
+            return {};
+        }
         // 16-bit → extract 8-bit slice per slider position
         auto* src16 = reinterpret_cast<const uint16_t*>(frame.data.data());
         size_t n = static_cast<size_t>(w) * h;

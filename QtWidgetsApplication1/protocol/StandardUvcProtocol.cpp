@@ -36,6 +36,13 @@ bool StandardUvcProtocol::parseFrame(const Frame& raw, ProcessedFrame& processed
 // ── YUYV → BGR (OpenCV) ──
 
 bool StandardUvcProtocol::parseYUYV(const Frame& raw, ProcessedFrame& processed) {
+    // 校验帧数据完整性，丢弃 USB 丢包导致的残缺帧
+    size_t expected = static_cast<size_t>(raw.width) * raw.height * 2;
+    if (raw.data.size() < expected) {
+        LOG_WARNING(QString("YUYV frame truncated: expected %1 bytes, got %2")
+            .arg(expected).arg(raw.data.size()));
+        return false;
+    }
     cv::Mat yuv(raw.height, raw.width, CV_8UC2, const_cast<uint8_t*>(raw.data.data()));
     cv::Mat bgr;
     cv::cvtColor(yuv, bgr, cv::COLOR_YUV2BGR_YUYV);
@@ -71,6 +78,13 @@ bool StandardUvcProtocol::parseMJPEG(const Frame& raw, ProcessedFrame& processed
 // ── Grayscale passthrough ──
 
 bool StandardUvcProtocol::parseGray8(const Frame& raw, ProcessedFrame& processed) {
+    // 校验帧数据完整性，丢弃 USB 丢包导致的残缺帧
+    size_t expected = static_cast<size_t>(raw.width) * raw.height;
+    if (raw.data.size() < expected) {
+        LOG_WARNING(QString("Gray8 frame truncated: expected %1 bytes, got %2")
+            .arg(expected).arg(raw.data.size()));
+        return false;
+    }
     processed.width  = raw.width;
     processed.height = raw.height;
     processed.cv_type = CV_8UC1;
@@ -81,6 +95,13 @@ bool StandardUvcProtocol::parseGray8(const Frame& raw, ProcessedFrame& processed
 }
 
 bool StandardUvcProtocol::parseGray16(const Frame& raw, ProcessedFrame& processed) {
+    // 校验帧数据完整性，丢弃 USB 丢包导致的残缺帧
+    size_t expected = static_cast<size_t>(raw.width) * raw.height * 2;
+    if (raw.data.size() < expected) {
+        LOG_WARNING(QString("Gray16 frame truncated: expected %1 bytes, got %2")
+            .arg(expected).arg(raw.data.size()));
+        return false;
+    }
     processed.width  = raw.width;
     processed.height = raw.height;
     processed.cv_type = CV_16UC1;
