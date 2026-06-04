@@ -60,6 +60,7 @@
     <ClCompile Include="protocol\CustomUvcProtocol.cpp">
       <Filter>Protocol</Filter>
     </ClCompile>
+    <ClCompile Include="ProcessingWorker.cpp" />
     <ClCompile Include="ui\CameraSettingsWidget.cpp" />
     <ClCompile Include="hal\UvcControls.cpp" />
     <ClCompile Include="..\third_party\libusb\libusb\core.c" />
@@ -123,6 +124,9 @@
     <ClInclude Include="protocol\CustomUvcProtocol.h">
       <Filter>Protocol</Filter>
     </ClInclude>
+    <QtMoc Include="ProcessingWorker.h">
+      <Filter>Processing</Filter>
+    </QtMoc>
     <QtMoc Include="ui\CameraSettingsWidget.h" />
   </ItemGroup>
   <ItemGroup>

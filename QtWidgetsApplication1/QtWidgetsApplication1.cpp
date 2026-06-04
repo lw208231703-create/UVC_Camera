@@ -7,6 +7,7 @@
 #include "hal/UvcControls.h"
 #include "protocol/StandardUvcProtocol.h"
 #include "protocol/CustomUvcProtocol.h"
+#include "ProcessingWorker.h"
 #include "infra/LogManager.h"
 #include "infra/ConfigManager.h"
 #include "infra/UiStrings.h"
@@ -20,13 +21,19 @@
 #include <QDateTime>
 #include <QCloseEvent>
 #include <QApplication>
+#include <QMetaType>
 #include <libuvc/libuvc.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
 
+// 注册 ProcessedFrame 为 Qt 元类型，支持跨线程 QueuedConnection
+Q_DECLARE_METATYPE(ProcessedFrame)
+
 QtWidgetsApplication1::QtWidgetsApplication1(QWidget* parent)
     : QMainWindow(parent)
 {
+    qRegisterMetaType<ProcessedFrame>("ProcessedFrame");
+
     setupUi();
     setupStyleSheet();
     setupMenuBar();
@@ -34,6 +41,18 @@ QtWidgetsApplication1::QtWidgetsApplication1(QWidget* parent)
     connectSignals();
 
     setWindowTitle("UVC Camera");
+
+    // ── 创建独立的帧处理线程 ──
+    m_workerThread = new QThread(this);
+    m_worker = new ProcessingWorker;  // no parent — will be moved
+    m_worker->moveToThread(m_workerThread);
+
+    // Worker → 主线程：处理好的帧送显
+    connect(m_worker, &ProcessingWorker::frameDisplayReady,
+            this, &QtWidgetsApplication1::onFrameProcessed,
+            Qt::QueuedConnection);
+
+    m_workerThread->start();
 
     // Init libuvc context
     if (!DeviceEnumerator::instance().initialize()) {
@@ -57,6 +76,14 @@ QtWidgetsApplication1::QtWidgetsApplication1(QWidget* parent)
 QtWidgetsApplication1::~QtWidgetsApplication1() {
     stopAll();
     DeviceEnumerator::instance().shutdown();
+
+    // 清理帧处理线程
+    if (m_workerThread) {
+        m_workerThread->quit();
+        m_workerThread->wait(3000);
+    }
+    delete m_worker;      // worker 没有 parent，手动删除
+    m_worker = nullptr;
 }
 
 void QtWidgetsApplication1::closeEvent(QCloseEvent* event) {
@@ -178,9 +205,13 @@ void QtWidgetsApplication1::connectSignals() {
     connect(m_controlPanel->recordBtn(), &QPushButton::toggled,
             this, &QtWidgetsApplication1::onToggleRecord);
 
-    // 16-bit shift
+    // 16-bit shift — 同步到 worker 线程
     connect(m_controlPanel->bitShiftSlider(), &QSlider::valueChanged,
-            this, [this](int val) { m_bitShift = val; });
+            this, [this](int val) {
+        m_bitShift = val;
+        if (m_worker)
+            m_worker->setBitShift(val);
+    });
 
     // Log
     connect(&LogManager::instance(), &LogManager::newEntry, this,
@@ -231,6 +262,8 @@ void QtWidgetsApplication1::onOpenDevice() {
         // Close
         stopAll();
         m_camera.reset();
+        // 清空 worker 中的协议指针，防止悬空引用
+        if (m_worker) m_worker->setProtocol(nullptr);
         m_protocol.reset();
         m_uvcControls.reset();
         m_controlPanel->cameraSettings()->clearControls();
@@ -272,8 +305,10 @@ void QtWidgetsApplication1::onOpenDevice() {
     }
 
     // Connect signals
+    // frameReady → worker 线程（帧处理在独立线程进行，不阻塞 UI）
     connect(m_camera.get(), &LibuvcCameraDevice::frameReady,
-            this, &QtWidgetsApplication1::onFrameReady);
+            m_worker, &ProcessingWorker::processFrame,
+            Qt::QueuedConnection);
     connect(m_camera.get(), &LibuvcCameraDevice::deviceLost,
             this, &QtWidgetsApplication1::onDeviceLost);
     connect(m_camera.get(), &LibuvcCameraDevice::streamingError,
@@ -282,6 +317,9 @@ void QtWidgetsApplication1::onOpenDevice() {
     // Init protocol (default: standard)
     m_protocol = std::make_unique<StandardUvcProtocol>();
     m_protocol->initialize(m_camera.get());
+
+    // 将协议处理器指针传给 worker 线程
+    m_worker->setProtocol(m_protocol.get());
 
     // Init UVC controls
     m_uvcControls = std::make_unique<UvcControls>(m_camera->deviceHandle());
@@ -383,112 +421,33 @@ void QtWidgetsApplication1::onApplyStream() {
         .arg(fmt.width).arg(fmt.height));
 }
 
-// ── Frame processing pipeline ──
+// ── Frame display (主线程，仅负责 UI) ──
+// 帧的协议解析 + QImage 转换已在 ProcessingWorker 线程中完成。
 
-void QtWidgetsApplication1::onFrameReady(const Frame& frame) {
+void QtWidgetsApplication1::onFrameProcessed(QImage img, ProcessedFrame parsed) {
     if (!m_streaming) return;
+    if (img.isNull()) return;
 
-    // Diagnostic: log first few frames
-    if (m_displayFrameCount < 3) {
-        LOG_INFO(QString("[Frame %1] raw: %2 %3x%4 %5 bytes")
-            .arg(m_displayFrameCount)
-            .arg(QString::fromStdString(frame.format))
-            .arg(frame.width).arg(frame.height)
-            .arg(frame.data.size()));
-    }
+    // 保存最后帧用于截图
+    m_lastFrame = std::move(parsed);
 
-    // Protocol: raw → processed
-    ProcessedFrame parsed;
-    if (m_protocol && !m_protocol->parseFrame(frame, parsed)) {
-        if (m_displayFrameCount < 3)
-            LOG_WARNING(QString("[Frame %1] parse failed for format %2")
-                .arg(m_displayFrameCount)
-                .arg(QString::fromStdString(frame.format)));
-        return;
-    }
-    if (!m_protocol)
-        parsed = {}; // shouldn't happen
+    // 显示
+    m_viewport->setImage(img);
 
-    if (!parsed.valid) {
-        if (m_displayFrameCount < 3)
-            LOG_WARNING(QString("[Frame %1] parsed frame invalid").arg(m_displayFrameCount));
-        return;
-    }
-
-    // Keep last frame for snapshot
-    m_lastFrame = parsed;
-
-    if (m_displayFrameCount < 3)
-        LOG_INFO(QString("[Frame %1] parsed: type=%2 %3x%4 %5 bytes")
-            .arg(m_displayFrameCount)
-            .arg(parsed.cv_type)
-            .arg(parsed.width).arg(parsed.height)
-            .arg(parsed.data.size()));
-
-    // Convert to QImage and display
-    QImage img = frameToQImage(parsed);
-    if (!img.isNull()) {
-        m_viewport->setImage(img);
-
-        // HUD overlay
-        m_displayFrameCount++;
-        auto now = QDateTime::currentDateTime();
-        m_viewport->setOverlayText(
-            QString("%1  Frame: %2")
-                .arg(now.toString("hh:mm:ss.zzz"))
-                .arg(m_displayFrameCount));
-    }
+    // HUD overlay
+    m_displayFrameCount++;
+    auto now = QDateTime::currentDateTime();
+    m_viewport->setOverlayText(
+        QString("%1  Frame: %2")
+            .arg(now.toString("hh:mm:ss.zzz"))
+            .arg(m_displayFrameCount));
 
     // Recording
-    if (m_recording && !img.isNull()) {
+    if (m_recording) {
         QString filename = QString("record_%1_%2.png")
             .arg(QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss"))
             .arg(m_recordCounter++, 5, 10, QChar('0'));
         img.save(filename, "PNG");
-    }
-}
-
-QImage QtWidgetsApplication1::frameToQImage(const ProcessedFrame& frame) {
-    if (!frame.valid || frame.data.empty()) return {};
-
-    int w = static_cast<int>(frame.width);
-    int h = static_cast<int>(frame.height);
-
-    if (frame.cv_type == CV_8UC3) {
-        // 校验缓冲区完整性
-        size_t expected = static_cast<size_t>(w) * h * 3;
-        if (frame.data.size() < expected) {
-            LOG_WARNING(QString("frameToQImage: CV_8UC3 data truncated, expected %1, got %2")
-                .arg(expected).arg(frame.data.size()));
-            return {};
-        }
-        // BGR (OpenCV default) → RGB for QImage
-        cv::Mat bgr(h, w, CV_8UC3, const_cast<uint8_t*>(frame.data.data()));
-        cv::Mat rgb;
-        cv::cvtColor(bgr, rgb, cv::COLOR_BGR2RGB);
-        return QImage(rgb.data, rgb.cols, rgb.rows, rgb.step,
-                      QImage::Format_RGB888).copy();
-
-    } else if (frame.cv_type == CV_16UC1) {
-        // 校验缓冲区完整性
-        size_t expected = static_cast<size_t>(w) * h * 2;
-        if (frame.data.size() < expected) {
-            LOG_WARNING(QString("frameToQImage: CV_16UC1 data truncated, expected %1, got %2")
-                .arg(expected).arg(frame.data.size()));
-            return {};
-        }
-        // 16-bit → extract 8-bit slice per slider position
-        auto* src16 = reinterpret_cast<const uint16_t*>(frame.data.data());
-        size_t n = static_cast<size_t>(w) * h;
-        int shift = m_bitShift;
-        std::vector<uint8_t> buf8(n);
-        for (size_t i = 0; i < n; i++)
-            buf8[i] = static_cast<uint8_t>((src16[i] >> shift) & 0xFF);
-        return QImage(buf8.data(), w, h, QImage::Format_Grayscale8).copy();
-
-    } else {
-        // CV_8UC1 or unknown → grayscale passthrough
-        return QImage(frame.data.data(), w, h, QImage::Format_Grayscale8).copy();
     }
 }
 

@@ -5,6 +5,7 @@
 #include <QLabel>
 #include <QTimer>
 #include <QElapsedTimer>
+#include <QThread>
 #include <memory>
 #include <vector>
 
@@ -12,6 +13,7 @@ class ImageViewport;
 class ControlPanel;
 class LibuvcCameraDevice;
 class IProtocolHandler;
+class ProcessingWorker;
 
 #include "core/CameraTypes.h"
 
@@ -26,7 +28,7 @@ private slots:
     void onRefreshDevices();
     void onOpenDevice();
     void onApplyStream();
-    void onFrameReady(const Frame& frame);
+    void onFrameProcessed(QImage img, ProcessedFrame parsed);
     void onSnapshot();
     void onToggleRecord(bool start);
     void onDeviceLost();
@@ -40,10 +42,6 @@ private:
     void setupStatusBar();
     void connectSignals();
     void closeEvent(QCloseEvent* event) override;
-
-    // Frame processing pipeline
-    void processFrame(const Frame& frame);
-    QImage frameToQImage(const ProcessedFrame& frame);
 
     void populateFormats();
     void stopAll();
@@ -65,6 +63,12 @@ private:
     // Protocol & processing
     std::unique_ptr<IProtocolHandler> m_protocol;
     std::unique_ptr<class UvcControls> m_uvcControls;
+
+    // ── 独立帧处理线程 ──
+    // Worker 线程在应用启动时创建，生命周期与窗口一致。
+    // 帧的协议解析 + QImage 转换在此线程完成，不阻塞 UI。
+    QThread*                m_workerThread = nullptr;
+    ProcessingWorker*       m_worker = nullptr;
 
     // State
     bool m_deviceOpen = false;

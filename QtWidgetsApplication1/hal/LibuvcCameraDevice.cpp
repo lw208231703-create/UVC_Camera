@@ -205,6 +205,32 @@ bool LibuvcCameraDevice::startStreaming() {
     m_lastFrameSequence = 0;
 
     LOG_INFO(QString("Streaming started: %1x%2").arg(m_currentFormat.width).arg(m_currentFormat.height));
+
+    // ── 流启动诊断信息 ──
+    if (m_streamCtrl) {
+        auto* ctrl = m_streamCtrl;
+        double frameSizeKB = ctrl->dwMaxVideoFrameSize / 1024.0;
+        double payloadSizeKB = ctrl->dwMaxPayloadTransferSize / 1024.0;
+
+        LOG_INFO(QString("[Stream Diag] ======== 流启动参数 ========"));
+        LOG_INFO(QString("[Stream Diag]   帧大小 (dwMaxVideoFrameSize):  %1 bytes (%2 KB)")
+            .arg(ctrl->dwMaxVideoFrameSize).arg(frameSizeKB, 0, 'f', 1));
+        LOG_INFO(QString("[Stream Diag]   载荷上限 (dwMaxPayloadTransferSize): %1 bytes (%2 KB)")
+            .arg(ctrl->dwMaxPayloadTransferSize).arg(payloadSizeKB, 0, 'f', 1));
+        LOG_INFO(QString("[Stream Diag]   帧间隔 (dwFrameInterval): %1 (100ns单位) = ~%2 FPS")
+            .arg(ctrl->dwFrameInterval)
+            .arg(ctrl->dwFrameInterval > 0 ? 10000000.0 / ctrl->dwFrameInterval : 0, 0, 'f', 1));
+        LOG_INFO(QString("[Stream Diag]   格式索引: %1  帧索引: %2  接口: %3")
+            .arg(ctrl->bFormatIndex).arg(ctrl->bFrameIndex).arg(ctrl->bInterfaceNumber));
+
+        // USB 3.0 burst: max_burst=16, max_packet_size=1024 → 16KB 理论极限
+        double maxUsb3PerMicroframe = 1024.0 * 16.0; // 16KB
+        double utilizationPct = ctrl->dwMaxPayloadTransferSize / maxUsb3PerMicroframe * 100.0;
+        LOG_INFO(QString("[Stream Diag]   USB 3.0 16KB FIFO 利用率: %1% (100% = burst×16 模式)")
+            .arg(utilizationPct, 0, 'f', 1));
+        LOG_INFO(QString("[Stream Diag] ==============================="));
+    }
+
     return true;
 }
 
