@@ -379,6 +379,7 @@ void QtWidgetsApplication1::onApplyStream() {
         m_camera->stopStreaming();
         m_streaming = false;
         m_controlPanel->setStreaming(false);
+        m_viewport->clearImage();        // 清除残留画面，防止重启时闪现旧帧
         m_viewport->setOverlayText("");
         LOG_INFO("Streaming stopped");
         return;
@@ -416,6 +417,9 @@ void QtWidgetsApplication1::onApplyStream() {
     m_displayFrameCount = 0;
     m_lastFrameBytes = 0;
     m_lastFrameCount = 0;
+
+    // 重置 worker 诊断计数器，确保新一轮启流的前3帧日志正常输出
+    if (m_worker) m_worker->resetDiagCounters();
 
     LOG_INFO(QString("Streaming started: %1x%2")
         .arg(fmt.width).arg(fmt.height));

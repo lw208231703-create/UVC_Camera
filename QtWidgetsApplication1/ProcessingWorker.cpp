@@ -28,6 +28,10 @@ uint64_t ProcessingWorker::droppedCount() const {
     return m_droppedCount.load(std::memory_order_relaxed);
 }
 
+void ProcessingWorker::resetDiagCounters() {
+    m_diagCount.store(0, std::memory_order_relaxed);
+}
+
 void ProcessingWorker::processFrame(const Frame& frame) {
     // ── 丢帧保护：如果上一帧还在处理中，跳过当前帧 ──
     // 防止 10MB bulk 帧在处理管线中堆积形成背压
@@ -38,11 +42,10 @@ void ProcessingWorker::processFrame(const Frame& frame) {
     }
 
     // ── 诊断日志：前 3 帧 ──
-    static uint32_t diagCount = 0;
-    diagCount++;
-    if (diagCount <= 3) {
+    uint32_t diagIdx = m_diagCount.fetch_add(1, std::memory_order_relaxed);
+    if (diagIdx < 3) {
         LOG_INFO(QString("[Frame %1] raw: %2 %3x%4 %5 bytes")
-            .arg(diagCount - 1)
+            .arg(diagIdx)
             .arg(QString::fromStdString(frame.format))
             .arg(frame.width).arg(frame.height)
             .arg(frame.data.size()));
@@ -51,9 +54,9 @@ void ProcessingWorker::processFrame(const Frame& frame) {
     // ── 协议：raw → processed ──
     ProcessedFrame parsed;
     if (m_protocol && !m_protocol->parseFrame(frame, parsed)) {
-        if (diagCount <= 3)
+        if (diagIdx < 3)
             LOG_WARNING(QString("[Frame %1] parse failed for format %2")
-                .arg(diagCount - 1)
+                .arg(diagIdx)
                 .arg(QString::fromStdString(frame.format)));
         m_busy.store(false, std::memory_order_release);
         return;
@@ -62,15 +65,15 @@ void ProcessingWorker::processFrame(const Frame& frame) {
         parsed = {};
 
     if (!parsed.valid) {
-        if (diagCount <= 3)
-            LOG_WARNING(QString("[Frame %1] parsed frame invalid").arg(diagCount - 1));
+        if (diagIdx < 3)
+            LOG_WARNING(QString("[Frame %1] parsed frame invalid").arg(diagIdx));
         m_busy.store(false, std::memory_order_release);
         return;
     }
 
-    if (diagCount <= 3)
+    if (diagIdx < 3)
         LOG_INFO(QString("[Frame %1] parsed: type=%2 %3x%4 %5 bytes")
-            .arg(diagCount - 1)
+            .arg(diagIdx)
             .arg(parsed.cv_type)
             .arg(parsed.width).arg(parsed.height)
             .arg(parsed.data.size()));

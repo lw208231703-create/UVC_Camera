@@ -77,4 +77,8 @@ private:
     std::atomic<uint32_t> m_droppedFrames{0};
     std::atomic<uint32_t> m_callbackLogCount{0};
     uint32_t              m_lastFrameSequence = 0;
+
+    // Warmup: skip first N frames after stream start (USB pipe not yet stable)
+    static constexpr uint32_t kWarmupFrames = 1;
+    std::atomic<uint32_t> m_warmupCounter{0};
 };

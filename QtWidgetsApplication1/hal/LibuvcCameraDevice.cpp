@@ -204,6 +204,7 @@ bool LibuvcCameraDevice::startStreaming() {
     m_droppedFrames = 0;
     m_callbackLogCount = 0;
     m_lastFrameSequence = 0;
+    m_warmupCounter = 0;
 
     LOG_INFO(QString("Streaming started: %1x%2").arg(m_currentFormat.width).arg(m_currentFormat.height));
 
@@ -260,6 +261,14 @@ CameraInfo LibuvcCameraDevice::getDeviceInfo() const { return m_deviceInfo; }
 void LibuvcCameraDevice::frameCallback(struct uvc_frame* uvcFrame, void* userPtr) {
     auto* self = static_cast<LibuvcCameraDevice*>(userPtr);
     if (!self || !self->m_streaming) return;
+
+    // ── Warmup skip: 流启动后前 N 帧数据不稳定，直接丢弃 ──
+    uint32_t warmupIdx = self->m_warmupCounter.fetch_add(1, std::memory_order_relaxed);
+    if (warmupIdx < kWarmupFrames) {
+        LOG_INFO(QString("[Warmup] Skipping frame %1 (USB pipe not yet stable)")
+            .arg(warmupIdx));
+        return;
+    }
 
     Frame frame;
     frame.width = uvcFrame->width;

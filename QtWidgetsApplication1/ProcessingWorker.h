@@ -30,6 +30,9 @@ public:
     uint64_t processedCount() const;
     uint64_t droppedCount() const;
 
+    /// 重置诊断计数器（在每次启流时调用）
+    void resetDiagCounters();
+
 public slots:
     /// 在 worker 线程上处理原始帧（通过 QueuedConnection 从相机接收）
     void processFrame(const Frame& frame);
@@ -46,4 +49,5 @@ private:
     std::atomic<uint64_t> m_processedCount{0};
     std::atomic<uint64_t> m_droppedCount{0};
     std::atomic<bool> m_busy{false};
+    std::atomic<uint32_t> m_diagCount{0};
 };
