@@ -5,6 +5,7 @@
 #include <QSlider>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QLineEdit>
 #include <QLabel>
 #include <QGroupBox>
 
@@ -24,11 +25,11 @@ private:
     void setupUi();
     QGroupBox* makeGroup(const QString& title);
 
-    // Helper: creates a slider + label row
     QWidget* makeSliderRow(const QString& name, QSlider*& slider, QLabel*& valueLabel,
                            int min, int max, int val);
-    QWidget* makeCheckRow(const QString& name, QCheckBox*& check, bool checked);
+    QWidget* makeInputRow(const QString& name, QLineEdit*& edit, const QString& initialText);
     QWidget* makeComboRow(const QString& name, QComboBox*& combo);
+    QWidget* makeCheckRow(const QString& name, QCheckBox*& check, bool checked);
 
     void connectSlider(QSlider* slider, QLabel* label, double scale,
                        std::function<bool(int)> setter);
@@ -37,70 +38,12 @@ private:
     QWidget* m_content;
     bool m_updating = false;
 
-    // ── Brightness ──
-    QSlider* m_brightnessSlider;
-    QLabel*  m_brightnessLabel;
-
-    // ── Contrast ──
-    QSlider*  m_contrastSlider;
-    QLabel*   m_contrastLabel;
-    QCheckBox* m_contrastAuto;
-
     // ── Gain ──
     QSlider* m_gainSlider;
     QLabel*  m_gainLabel;
 
-    // ── Saturation ──
-    QSlider* m_saturationSlider;
-    QLabel*  m_saturationLabel;
-
-    // ── Sharpness ──
-    QSlider* m_sharpnessSlider;
-    QLabel*  m_sharpnessLabel;
-
-    // ── Gamma ──
-    QSlider* m_gammaSlider;
-    QLabel*  m_gammaLabel;
-
-    // ── White Balance ──
-    QSlider*  m_wbTempSlider;
-    QLabel*   m_wbTempLabel;
-    QCheckBox* m_wbAuto;
-
     // ── Exposure ──
-    QSlider*  m_exposureSlider;
-    QLabel*   m_exposureLabel;
+    QLineEdit* m_exposureEdit;
     QComboBox* m_aeModeCombo;
     QCheckBox* m_aePriorityCheck;
-
-    // ── Focus ──
-    QSlider*  m_focusSlider;
-    QLabel*   m_focusLabel;
-    QCheckBox* m_focusAuto;
-
-    // ── Hue ──
-    QSlider*  m_hueSlider;
-    QLabel*   m_hueLabel;
-    QCheckBox* m_hueAuto;
-
-    // ── Backlight ──
-    QSlider* m_backlightSlider;
-    QLabel*  m_backlightLabel;
-
-    // ── Power Line Freq ──
-    QComboBox* m_powerLineCombo;
-
-    // ── Zoom ──
-    QSlider* m_zoomSlider;
-    QLabel*  m_zoomLabel;
-
-    // ── Iris ──
-    QSlider* m_irisSlider;
-    QLabel*  m_irisLabel;
-
-    // ── Pan/Tilt ──
-    QSlider* m_panSlider;
-    QLabel*  m_panLabel;
-    QSlider* m_tiltSlider;
-    QLabel*  m_tiltLabel;
 };
