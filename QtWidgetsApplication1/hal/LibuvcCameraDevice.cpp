@@ -202,6 +202,7 @@ bool LibuvcCameraDevice::startStreaming() {
     m_totalBytes = 0;
     m_totalFrames = 0;
     m_droppedFrames = 0;
+    m_callbackLogCount = 0;
     m_lastFrameSequence = 0;
 
     LOG_INFO(QString("Streaming started: %1x%2").arg(m_currentFormat.width).arg(m_currentFormat.height));
@@ -235,12 +236,13 @@ bool LibuvcCameraDevice::startStreaming() {
 }
 
 void LibuvcCameraDevice::stopStreaming() {
-    if (!m_streaming) return;
+    bool wasStreaming = m_streaming.exchange(false);
+    if (!wasStreaming) return;
+
     if (m_devh)
         uvc_stop_streaming(m_devh);
     delete m_streamCtrl;
     m_streamCtrl = nullptr;
-    m_streaming = false;
     LOG_INFO("Streaming stopped");
 }
 
@@ -278,6 +280,16 @@ void LibuvcCameraDevice::frameCallback(struct uvc_frame* uvcFrame, void* userPtr
 
     frame.data.assign(static_cast<uint8_t*>(uvcFrame->data),
                       static_cast<uint8_t*>(uvcFrame->data) + uvcFrame->data_bytes);
+
+    uint32_t cbLogIndex = self->m_callbackLogCount.fetch_add(1, std::memory_order_relaxed);
+    if (cbLogIndex < 3) {
+        LOG_INFO(QString("[CB Frame %1] fmt=%2 %3x%4 %5 bytes seq=%6")
+            .arg(cbLogIndex)
+            .arg(QString::fromStdString(frame.format))
+            .arg(frame.width).arg(frame.height)
+            .arg(frame.data.size())
+            .arg(frame.frame_index));
+    }
 
     // Drop detection via sequence gap
     if (self->m_lastFrameSequence != 0 &&

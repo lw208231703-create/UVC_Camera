@@ -75,5 +75,6 @@ private:
     std::atomic<uint64_t> m_totalBytes{0};
     std::atomic<uint32_t> m_totalFrames{0};
     std::atomic<uint32_t> m_droppedFrames{0};
+    std::atomic<uint32_t> m_callbackLogCount{0};
     uint32_t              m_lastFrameSequence = 0;
 };
