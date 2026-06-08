@@ -9,6 +9,7 @@
 #include <QSlider>
 #include <QGroupBox>
 #include <QTextEdit>
+#include <QLineEdit>
 #include <QVBoxLayout>
 
 class CameraSettingsWidget;
@@ -42,8 +43,18 @@ public:
     // 16-bit shift slider
     QSlider* bitShiftSlider() { return m_bitShiftSlider; }
 
+    // I2C register debug
+    QLineEdit*   i2cAddrEdit()   { return m_i2cAddrEdit; }
+    QLineEdit*   i2cRegEdit()    { return m_i2cRegEdit; }
+    QLineEdit*   i2cLenEdit()    { return m_i2cLenEdit; }
+    QLineEdit*   i2cDataEdit()   { return m_i2cDataEdit; }
+    QPushButton* i2cReadBtn()    { return m_i2cReadBtn; }
+    QPushButton* i2cWriteBtn()   { return m_i2cWriteBtn; }
+    QLabel*      i2cResultLabel(){ return m_i2cResultLabel; }
+
     void setDeviceOpen(bool open);
     void setStreaming(bool streaming);
+    void setI2cEnabled(bool enabled);
 
 signals:
     void refreshDevices();
@@ -74,4 +85,14 @@ private:
     // Bit-depth shift
     QSlider* m_bitShiftSlider;
     QLabel*  m_bitShiftLabel;
+
+    // I2C register debug
+    QLineEdit*   m_i2cAddrEdit = nullptr;
+    QLineEdit*   m_i2cRegEdit = nullptr;
+    QLineEdit*   m_i2cLenEdit = nullptr;
+    QLineEdit*   m_i2cDataEdit = nullptr;
+    QPushButton* m_i2cReadBtn = nullptr;
+    QPushButton* m_i2cWriteBtn = nullptr;
+    QLabel*      m_i2cResultLabel = nullptr;
+    QWidget*     m_i2cGroup = nullptr;
 };

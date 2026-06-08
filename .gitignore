@@ -78,3 +78,4 @@ desktop.ini
 *.md
 #忽略日志文件
 /log
+/I2C_Demo_Application

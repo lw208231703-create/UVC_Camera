@@ -72,6 +72,7 @@
   <ItemGroup>
     <ClInclude Include="core\CameraTypes.h" />
     <ClInclude Include="hal\UvcControls.h" />
+    <ClInclude Include="hal\FTI2cBridge.h" />
     <ClInclude Include="core\ICameraDevice.h" />
     <ClInclude Include="core\IProtocolHandler.h" />
     <ClInclude Include="core\IImageProcessor.h" />
@@ -90,6 +91,7 @@
     <ClCompile Include="ui\CameraSettingsWidget.cpp" />
     <ClCompile Include="hal\DeviceEnumerator.cpp" />
     <ClCompile Include="hal\UvcControls.cpp" />
+    <ClCompile Include="hal\FTI2cBridge.cpp" />
     <ClCompile Include="hal\LibuvcCameraDevice.cpp" />
     <ClCompile Include="protocol\StandardUvcProtocol.cpp" />
     <ClCompile Include="protocol\CustomUvcProtocol.cpp" />

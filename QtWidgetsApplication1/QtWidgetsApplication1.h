@@ -14,6 +14,7 @@ class ControlPanel;
 class LibuvcCameraDevice;
 class IProtocolHandler;
 class ProcessingWorker;
+class FTI2cBridge;
 
 #include "core/CameraTypes.h"
 
@@ -63,6 +64,7 @@ private:
     // Protocol & processing
     std::unique_ptr<IProtocolHandler> m_protocol;
     std::unique_ptr<class UvcControls> m_uvcControls;
+    std::unique_ptr<FTI2cBridge> m_i2cBridge;
 
     // ── 独立帧处理线程 ──
     // Worker 线程在应用启动时创建，生命周期与窗口一致。

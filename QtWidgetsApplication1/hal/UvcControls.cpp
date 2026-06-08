@@ -137,3 +137,8 @@ bool UvcControls::setPrivacy(uint8_t val)               { return uvc_set_privacy
 // ── Power Mode ──
 bool UvcControls::getPowerMode(uint8_t& mode)          { return uvc_get_power_mode(m_devh, (uvc_device_power_mode*)&mode, UVC_GET_CUR) >= 0; }
 bool UvcControls::setPowerMode(uint8_t mode)            { return uvc_set_power_mode(m_devh, (uvc_device_power_mode)mode) >= 0; }
+
+libusb_device_handle* UvcControls::libusbHandle() const {
+    if (!m_devh) return nullptr;
+    return uvc_get_libusb_handle(m_devh);
+}

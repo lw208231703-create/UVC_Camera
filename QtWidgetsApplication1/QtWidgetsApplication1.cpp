@@ -5,6 +5,7 @@
 #include "hal/DeviceEnumerator.h"
 #include "hal/LibuvcCameraDevice.h"
 #include "hal/UvcControls.h"
+#include "hal/FTI2cBridge.h"
 #include "protocol/StandardUvcProtocol.h"
 #include "protocol/CustomUvcProtocol.h"
 #include "ProcessingWorker.h"
@@ -13,6 +14,7 @@
 #include "infra/UiStrings.h"
 #include "core/CameraTypes.h"
 
+#include <algorithm>
 #include <QMenuBar>
 #include <QStatusBar>
 #include <QMessageBox>
@@ -266,7 +268,9 @@ void QtWidgetsApplication1::onOpenDevice() {
         if (m_worker) m_worker->setProtocol(nullptr);
         m_protocol.reset();
         m_uvcControls.reset();
+        m_i2cBridge.reset();
         m_controlPanel->cameraSettings()->clearControls();
+        m_controlPanel->setI2cEnabled(false);
 
         m_deviceOpen = false;
         m_controlPanel->setDeviceOpen(false);
@@ -324,6 +328,107 @@ void QtWidgetsApplication1::onOpenDevice() {
     // Init UVC controls
     m_uvcControls = std::make_unique<UvcControls>(m_camera->deviceHandle());
     m_controlPanel->cameraSettings()->setControls(m_uvcControls.get());
+
+    // Init I2C bridge + enable panel
+    m_i2cBridge = std::make_unique<FTI2cBridge>(m_uvcControls->libusbHandle(), 0x0D);
+    m_controlPanel->setI2cEnabled(true);
+
+    // ── I2C Read / Write connections ──
+    {
+        auto* pan = m_controlPanel;
+        auto* bridge = m_i2cBridge.get();
+
+        disconnect(pan->i2cReadBtn(), nullptr, nullptr, nullptr);
+        disconnect(pan->i2cWriteBtn(), nullptr, nullptr, nullptr);
+
+        // Read
+        connect(pan->i2cReadBtn(), &QPushButton::clicked, this, [pan, bridge]() {
+            if (!bridge || !bridge->isValid()) {
+                pan->i2cResultLabel()->setText(TR("I2C 桥不可用"));
+                return;
+            }
+            bool ok;
+
+            // Parse I2C address
+            uint8_t i2cAddr = (uint8_t)pan->i2cAddrEdit()->text().toUInt(&ok, 16);
+            if (ok) bridge->setI2cAddress(i2cAddr);
+
+            // Parse register address
+            uint16_t regAddr = (uint16_t)pan->i2cRegEdit()->text().toUInt(&ok, 16);
+            if (!ok) { pan->i2cResultLabel()->setText(TR("无效的寄存器地址")); return; }
+
+            // Parse length
+            int len = pan->i2cLenEdit()->text().toInt(&ok);
+            if (!ok || len < 1 || len > 256) { pan->i2cResultLabel()->setText(TR("长度需在 1-256")); return; }
+
+            std::vector<uint8_t> buf(len, 0);
+            int ret = bridge->readReg(regAddr, buf.data(), len);
+            if (ret <= 0) {
+                pan->i2cResultLabel()->setText(QString("读取失败 (ret=%1)").arg(ret));
+                return;
+            }
+
+            // Read raw bytes, then display in big-endian for human readability
+            QStringList rawParts, beParts;
+            for (int i = 0; i < ret; i++)
+                rawParts << QString("%1").arg(buf[i], 2, 16, QChar('0')).toUpper();
+            for (int i = ret - 1; i >= 0; i--)
+                beParts << QString("%1").arg(buf[i], 2, 16, QChar('0')).toUpper();
+            pan->i2cResultLabel()->setText(
+                QString("读 [0x%1] %2 字节\n"
+                        "  Raw: %3\n"
+                        "  BE : %4")
+                    .arg(regAddr, 4, 16, QChar('0')).arg(ret)
+                    .arg(rawParts.join(' ')).arg(beParts.join(' ')));
+        });
+
+        // Write
+        connect(pan->i2cWriteBtn(), &QPushButton::clicked, this, [pan, bridge]() {
+            if (!bridge || !bridge->isValid()) {
+                pan->i2cResultLabel()->setText(TR("I2C 桥不可用"));
+                return;
+            }
+            bool ok;
+
+            uint8_t i2cAddr = (uint8_t)pan->i2cAddrEdit()->text().toUInt(&ok, 16);
+            if (ok) bridge->setI2cAddress(i2cAddr);
+
+            uint16_t regAddr = (uint16_t)pan->i2cRegEdit()->text().toUInt(&ok, 16);
+            if (!ok) { pan->i2cResultLabel()->setText(TR("无效的寄存器地址")); return; }
+
+            // Parse hex bytes.
+            // "1E 1E" or "1E,1E" → bytes sent as-is: [0x1E, 0x1E]
+            // "1234" (no spaces) → treated as a 16-bit value, sent little-endian: [0x34, 0x12]
+            QString raw = pan->i2cDataEdit()->text().trimmed();
+            bool hasSep = raw.contains(' ') || raw.contains(',');
+            QString hex = raw;
+            hex.remove(' ').remove(',');
+            if (hex.isEmpty()) { pan->i2cResultLabel()->setText(TR("无写入数据")); return; }
+            if (hex.length() % 2 != 0) {
+                pan->i2cResultLabel()->setText(TR("十六进制数据长度须为偶数"));
+                return;
+            }
+
+            std::vector<uint8_t> wbuf;
+          //  bool ok;
+            for (int i = 0; i < hex.length(); i += 2) {
+                uint8_t b = (uint8_t)hex.mid(i, 2).toUInt(&ok, 16);
+                if (!ok) { pan->i2cResultLabel()->setText(QString("无效的十六进制: %1").arg(hex.mid(i, 2))); return; }
+                wbuf.push_back(b);
+            }
+            // Reverse byte order for little-endian when user typed a continuous value (no separators)
+            if (!hasSep && wbuf.size() > 1)
+                std::reverse(wbuf.begin(), wbuf.end());
+
+            int ret = bridge->writeReg(regAddr, wbuf.data(), (int)wbuf.size());
+            if (ret <= 0) {
+                pan->i2cResultLabel()->setText(QString("写入失败 (ret=%1)").arg(ret));
+                return;
+            }
+            pan->i2cResultLabel()->setText(
+                QString("写 [0x%1] %2 字节 OK").arg(regAddr, 4, 16, QChar('0')).arg(ret));
+        });
+    }
 
     m_deviceOpen = true;
     m_controlPanel->setDeviceOpen(true);

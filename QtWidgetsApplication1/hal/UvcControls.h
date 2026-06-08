@@ -4,6 +4,7 @@
 #include <QString>
 
 struct uvc_device_handle;
+struct libusb_device_handle;
 
 class UvcControls {
 public:
@@ -116,6 +117,9 @@ public:
     // ── Power Mode ──
     bool getPowerMode(uint8_t& mode);
     bool setPowerMode(uint8_t mode);
+
+    // ── I2C bridge support ──
+    libusb_device_handle* libusbHandle() const;
 
 private:
     uvc_device_handle* m_devh = nullptr;

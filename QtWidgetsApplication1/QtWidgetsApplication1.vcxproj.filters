@@ -63,6 +63,7 @@
     <ClCompile Include="ProcessingWorker.cpp" />
     <ClCompile Include="ui\CameraSettingsWidget.cpp" />
     <ClCompile Include="hal\UvcControls.cpp" />
+    <ClCompile Include="hal\FTI2cBridge.cpp" />
     <ClCompile Include="..\third_party\libusb\libusb\core.c" />
     <ClCompile Include="..\third_party\libusb\libusb\descriptor.c" />
     <ClCompile Include="..\third_party\libusb\libusb\hotplug.c" />
@@ -136,5 +137,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="hal\UvcControls.h" />
+    <ClInclude Include="hal\FTI2cBridge.h" />
   </ItemGroup>
 </Project>
