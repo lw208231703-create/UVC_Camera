@@ -307,6 +307,25 @@ void LibuvcCameraDevice::frameCallback(struct uvc_frame* uvcFrame, void* userPtr
     }
     self->m_lastFrameSequence = uvcFrame->sequence;
 
+    // Drop detection via data size (BULK truncation)
+    {
+        size_t expected = 0;
+        if (uvcFrame->frame_format == UVC_FRAME_FORMAT_GRAY16)
+            expected = (size_t)uvcFrame->width * uvcFrame->height * 2;
+        else if (uvcFrame->frame_format == UVC_FRAME_FORMAT_GRAY8)
+            expected = (size_t)uvcFrame->width * uvcFrame->height;
+        else if (uvcFrame->frame_format == UVC_FRAME_FORMAT_YUYV)
+            expected = (size_t)uvcFrame->width * uvcFrame->height * 2;
+
+        if (expected > 0 && uvcFrame->data_bytes < expected) {
+            self->m_droppedFrames++;
+            LOG_WARNING(QString("[Drop] truncated frame seq=%1: got=%2 expected=%3 (diff=%4)")
+                .arg(uvcFrame->sequence)
+                .arg(uvcFrame->data_bytes).arg(expected)
+                .arg(expected - uvcFrame->data_bytes));
+        }
+    }
+
     self->m_totalFrames++;
     self->m_totalBytes += uvcFrame->data_bytes;
 
