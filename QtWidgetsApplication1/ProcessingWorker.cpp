@@ -54,10 +54,10 @@ void ProcessingWorker::processFrame(const Frame& frame) {
     // ── 协议：raw → processed ──
     ProcessedFrame parsed;
     if (m_protocol && !m_protocol->parseFrame(frame, parsed)) {
-        if (diagIdx < 3)
-            LOG_WARNING(QString("[Frame %1] parse failed for format %2")
-                .arg(diagIdx)
-                .arg(QString::fromStdString(frame.format)));
+        LOG_WARNING(QString("[Frame %1] parse failed for format %2 (size=%3)")
+            .arg(diagIdx)
+            .arg(QString::fromStdString(frame.format))
+            .arg(frame.data.size()));
         m_busy.store(false, std::memory_order_release);
         return;
     }

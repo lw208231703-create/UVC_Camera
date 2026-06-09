@@ -303,7 +303,12 @@ void LibuvcCameraDevice::frameCallback(struct uvc_frame* uvcFrame, void* userPtr
     // Drop detection via sequence gap
     if (self->m_lastFrameSequence != 0 &&
         uvcFrame->sequence != self->m_lastFrameSequence + 1) {
-        self->m_droppedFrames++;
+        uint32_t gap = (uvcFrame->sequence > self->m_lastFrameSequence + 1)
+            ? (uvcFrame->sequence - self->m_lastFrameSequence - 1) : 1;
+        self->m_droppedFrames += gap;
+        LOG_WARNING(QString("[Drop] seq skip: last=%1 got=%2 gap=%3 (total=%4)")
+            .arg(self->m_lastFrameSequence).arg(uvcFrame->sequence)
+            .arg(gap).arg(self->m_droppedFrames.load()));
     }
     self->m_lastFrameSequence = uvcFrame->sequence;
 
@@ -317,12 +322,12 @@ void LibuvcCameraDevice::frameCallback(struct uvc_frame* uvcFrame, void* userPtr
         else if (uvcFrame->frame_format == UVC_FRAME_FORMAT_YUYV)
             expected = (size_t)uvcFrame->width * uvcFrame->height * 2;
 
-        if (expected > 0 && uvcFrame->data_bytes < expected) {
+        if (expected > 0 && uvcFrame->data_bytes != expected) {
             self->m_droppedFrames++;
-            LOG_WARNING(QString("[Drop] truncated frame seq=%1: got=%2 expected=%3 (diff=%4)")
+            LOG_WARNING(QString("[Drop] size mismatch seq=%1: got=%2 expected=%3 (diff=%4)")
                 .arg(uvcFrame->sequence)
                 .arg(uvcFrame->data_bytes).arg(expected)
-                .arg(expected - uvcFrame->data_bytes));
+                .arg((int64_t)expected - (int64_t)uvcFrame->data_bytes));
         }
     }
 
