@@ -59,9 +59,11 @@ Makefile*
 *.prl
 
 # ==============================================================================
-# 忽略第三方库 (包含庞大的 CUDA, OpenCV, dll/lib 等)
+# 忽略第三方库 (大型本地库和编译产物)
+# 注意: libuvc, json, libusb, spdlog 已转为 git submodule，不再忽略
 # ==============================================================================
-third_party/
+third_party/opencv-core/
+third_party/win_compat/
 *.dll
 *.lib
 *.exe

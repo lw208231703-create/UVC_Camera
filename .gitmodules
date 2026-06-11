@@ -1,0 +1,16 @@
+[submodule "third_party/libuvc"]
+	path = third_party/libuvc
+	url = https://github.com/lw208231703-create/libuvc.git
+	branch = master
+[submodule "third_party/json"]
+	path = third_party/json
+	url = https://github.com/lw208231703-create/json.git
+	branch = develop
+[submodule "third_party/libusb"]
+	path = third_party/libusb
+	url = https://github.com/lw208231703-create/libusb.git
+	branch = master
+[submodule "third_party/spdlog"]
+	path = third_party/spdlog
+	url = https://github.com/lw208231703-create/spdlog.git
+	branch = v1.x
