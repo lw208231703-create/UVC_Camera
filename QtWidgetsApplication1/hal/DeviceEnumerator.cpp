@@ -54,30 +54,43 @@ QList<DeviceEnumerator::DeviceEntry> DeviceEnumerator::enumerate() {
         if (uvc_get_device_descriptor(list[i], &desc) != UVC_SUCCESS)
             continue;
 
-        DeviceEntry entry;
-        entry.vid = desc->idVendor;
-        entry.pid = desc->idProduct;
+        // Detect how many UVC camera channels (VC interfaces) this device has
+        int cameraCount = uvc_get_camera_count(list[i]);
+        if (cameraCount < 1) cameraCount = 1;
 
-        if (desc->product) {
-            entry.name = QString::fromUtf8(desc->product);
-        } else {
-            entry.name = QString("USB Camera %1:%2")
-                .arg(desc->idVendor, 4, 16, QChar('0'))
-                .arg(desc->idProduct, 4, 16, QChar('0'));
+        for (int ch = 0; ch < cameraCount; ch++) {
+            DeviceEntry entry;
+            entry.vid = desc->idVendor;
+            entry.pid = desc->idProduct;
+
+            if (desc->product) {
+                entry.name = QString::fromUtf8(desc->product);
+            } else {
+                entry.name = QString("USB Camera %1:%2")
+                    .arg(desc->idVendor, 4, 16, QChar('0'))
+                    .arg(desc->idProduct, 4, 16, QChar('0'));
+            }
+            if (desc->manufacturer)
+                entry.name = QString::fromUtf8(desc->manufacturer) + " " + entry.name;
+
+            // Append channel suffix for multi-channel devices
+            if (cameraCount > 1)
+                entry.name += QString(" [CH%1]").arg(ch);
+
+            entry.serial = desc->serialNumber ? QString::fromUtf8(desc->serialNumber) : QString();
+            entry.bus = uvc_get_bus_number(list[i]);
+            entry.address = uvc_get_device_address(list[i]);
+            entry.cameraIndex = ch;
+            entry.cameraCount = cameraCount;
+
+            // Keep a reference so the device pointer stays valid
+            uvc_ref_device(list[i]);
+            entry.raw_device = list[i];
+
+            result.append(entry);
         }
-        if (desc->manufacturer)
-            entry.name = QString::fromUtf8(desc->manufacturer) + " " + entry.name;
-
-        entry.serial = desc->serialNumber ? QString::fromUtf8(desc->serialNumber) : QString();
-        entry.bus = uvc_get_bus_number(list[i]);
-        entry.address = uvc_get_device_address(list[i]);
-
-        // Keep a reference so the device pointer stays valid
-        uvc_ref_device(list[i]);
-        entry.raw_device = list[i];
 
         uvc_free_device_descriptor(desc);
-        result.append(entry);
     }
 
     uvc_free_device_list(list, 0);

@@ -60,6 +60,7 @@ private:
     // Hardware
     std::unique_ptr<LibuvcCameraDevice> m_camera;
     std::vector<void*> m_rawDeviceList;
+    std::vector<int>   m_cameraIndexList; // camera_idx per device entry
 
     // Protocol & processing
     std::unique_ptr<IProtocolHandler> m_protocol;

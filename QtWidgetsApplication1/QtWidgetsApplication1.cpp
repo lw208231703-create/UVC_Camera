@@ -235,6 +235,7 @@ void QtWidgetsApplication1::onRefreshDevices() {
     for (auto* dev : m_rawDeviceList)
         uvc_unref_device(static_cast<uvc_device_t*>(dev));
     m_rawDeviceList.clear();
+    m_cameraIndexList.clear();
 
     auto devices = DeviceEnumerator::instance().enumerate();
 
@@ -250,10 +251,13 @@ void QtWidgetsApplication1::onRefreshDevices() {
             .arg(dev.pid, 4, 16, QChar('0'))
             .arg(dev.bus)
             .arg(dev.address);
+        if (dev.cameraCount > 1)
+            label += QString(" ch%1/%2").arg(dev.cameraIndex).arg(dev.cameraCount);
 
         m_controlPanel->deviceCombo()->addItem(label,
             QVariant::fromValue(reinterpret_cast<quintptr>(dev.raw_device)));
         m_rawDeviceList.push_back(dev.raw_device);
+        m_cameraIndexList.push_back(dev.cameraIndex);
     }
 }
 
@@ -295,8 +299,12 @@ void QtWidgetsApplication1::onOpenDevice() {
         return;
     }
 
+    // Get camera index for multi-channel devices
+    int cameraIdx = (idx < (int)m_cameraIndexList.size()) ? m_cameraIndexList[idx] : 0;
+
     m_camera = std::make_unique<LibuvcCameraDevice>();
     m_camera->setRawDevice(rawDev);
+    m_camera->setCameraIndex(cameraIdx);
 
     if (!m_camera->open()) {
         QString msg = TR("Failed to open camera device.\n\n%1"

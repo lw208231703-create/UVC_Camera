@@ -37,6 +37,8 @@ public:
 
     // Set the raw uvc_device pointer from enumeration
     void setRawDevice(struct uvc_device* dev);
+    void setCameraIndex(int idx) { m_cameraIndex = idx; }
+    int cameraIndex() const { return m_cameraIndex; }
     struct uvc_device* rawDevice() const { return m_rawDevice; }
     struct uvc_device_handle* deviceHandle() const { return m_devh; }
 
@@ -59,6 +61,7 @@ private:
     struct uvc_device*        m_rawDevice = nullptr;
     struct uvc_device_handle* m_devh = nullptr;
     struct uvc_stream_ctrl*   m_streamCtrl = nullptr;
+    int                       m_cameraIndex = 0; // which VC interface to open
     CameraFormat       m_currentFormat;
     CameraInfo         m_deviceInfo;
     QString            m_lastError;

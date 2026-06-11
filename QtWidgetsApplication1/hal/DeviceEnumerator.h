@@ -27,6 +27,8 @@ public:
         QString serial;
         uint8_t bus = 0;
         uint8_t address = 0;
+        int cameraIndex = 0;   // 0-based index for multi-channel UVC devices
+        int cameraCount = 1;   // total camera channels on this USB device
         uvc_device* raw_device = nullptr;
     };
 

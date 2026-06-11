@@ -25,7 +25,13 @@ bool LibuvcCameraDevice::open() {
         return false;
     }
 
-    uvc_error_t res = uvc_open(m_rawDevice, &m_devh);
+    uvc_error_t res;
+    if (m_cameraIndex > 0) {
+        res = uvc_open2(m_rawDevice, &m_devh, m_cameraIndex);
+        LOG_INFO(QString("uvc_open2 called with camera_idx=%1").arg(m_cameraIndex));
+    } else {
+        res = uvc_open(m_rawDevice, &m_devh);
+    }
     if (res != UVC_SUCCESS) {
         QString errMsg = QString::fromUtf8(uvc_strerror(res));
         m_lastError = errMsg;
