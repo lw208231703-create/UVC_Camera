@@ -60,9 +60,17 @@ Makefile*
 
 # ==============================================================================
 # 忽略第三方库 (大型本地库和编译产物)
-# 注意: libuvc, json, libusb, spdlog 已转为 git submodule，不再忽略
+# 注意: libuvc, json, libusb, spdlog 已转为 git submodule
+# 注意: opencv-core 仅必需文件(include/lib/dll)已通过 git add -f 强制纳入
+#       以下规则防止 git add . 意外添加 2GB 的源码和构建产物
 # ==============================================================================
-third_party/opencv-core/
+third_party/opencv-core/opencv-sorce/
+third_party/opencv-core/opencv-build/*
+!third_party/opencv-core/opencv-build/install/
+third_party/opencv-core/opencv-build/install/etc/
+third_party/opencv-core/opencv-build/install/x64/vc17/bin/*.exe
+third_party/opencv-core/opencv-build/install/x64/vc17/bin/opencv_videoio_ffmpeg*.dll
+third_party/opencv-core/opencv-build/install/x64/vc17/lib/*.cmake
 third_party/win_compat/
 *.dll
 *.lib
