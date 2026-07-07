@@ -34,7 +34,6 @@ void ImageViewport::setOverlayText(const QString& text) {
 
 void ImageViewport::paintEvent(QPaintEvent*) {
     QPainter p(this);
-    p.setRenderHint(QPainter::SmoothPixmapTransform);
 
     // Dark background
     p.fillRect(rect(), QColor("#1E1E1E"));
@@ -114,7 +113,7 @@ void ImageViewport::updateDisplay() {
     if (m_sourceImage.isNull() || !m_fitToWindow) return;
     QSize sz = m_sourceImage.size();
     sz.scale(size(), Qt::KeepAspectRatio);
-    m_pixmap = QPixmap::fromImage(m_sourceImage.scaled(sz, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    m_pixmap = QPixmap::fromImage(m_sourceImage.scaled(sz, Qt::KeepAspectRatio, Qt::FastTransformation));
 }
 
 QRectF ImageViewport::imageRect() const {
