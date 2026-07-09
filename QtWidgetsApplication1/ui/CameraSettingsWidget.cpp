@@ -137,7 +137,7 @@ void CameraSettingsWidget::setupUi() {
 
         // Exposure time: line edit, apply on Enter or focus lost
         lay->addWidget(makeInputRow(TR("Exp. Time"), m_exposureEdit, "156"));
-        m_exposureEdit->setValidator(new QIntValidator(0, 100000, m_exposureEdit));
+        m_exposureEdit->setValidator(new QIntValidator(0, 10000000, m_exposureEdit));
 
         auto applyExposure = [this]() {
             if (m_updating || !m_ctrl) return;
