@@ -25,7 +25,7 @@
     <Import Project="$(QtMsBuild)\qt_defaults.props" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="QtSettings">
-    <QtInstall>6.11.1_msvc2022_64</QtInstall>
+    <QtInstall>6.12.0_msvc2022_64</QtInstall>
     <QtModules>core;gui;widgets</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
@@ -168,8 +168,7 @@
   </ItemGroup>
   <!-- 编译前自动生成 libusb version_describe.h（submodule 中此文件由构建系统生成，不在版本控制内） -->
   <Target Name="GenerateLibusbVersionDescribe" BeforeTargets="ClCompile">
-    <Exec Condition="!Exists('$(SolutionDir)..\third_party\libusb\libusb\version_describe.h')"
-          Command="echo /* Auto-generated */ > &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #ifndef LIBUSB_DESCRIBE >> &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #define LIBUSB_DESCRIBE &quot;custom-build&quot; >> &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #endif >> &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot;" />
+    <Exec Condition="!Exists('$(SolutionDir)..\third_party\libusb\libusb\version_describe.h')" Command="echo /* Auto-generated */ &gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #ifndef LIBUSB_DESCRIBE &gt;&gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #define LIBUSB_DESCRIBE &quot;custom-build&quot; &gt;&gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #endif &gt;&gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot;" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">
