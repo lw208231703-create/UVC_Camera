@@ -179,19 +179,14 @@ void QtWidgetsApplication1::setupMenuBar() {
 
 void QtWidgetsApplication1::setupStatusBar() {
     m_fpsLabel          = new QLabel(TR("FPS: --"));
-    m_deviceStatusLabel = new QLabel(TR("Device: Disconnected"));
     m_bandwidthLabel    = new QLabel(TR("Rx: -- MB/s"));
-    m_droppedLabel      = new QLabel(TR("Dropped: 0"));
 
-    for (auto* lbl : {m_fpsLabel, m_deviceStatusLabel, m_bandwidthLabel, m_droppedLabel}) {
+    for (auto* lbl : {m_fpsLabel, m_bandwidthLabel}) {
         lbl->setStyleSheet("color:#FFFFFF; padding: 0 10px;");
     }
-    m_droppedLabel->setStyleSheet("color:#FF6666; padding: 0 10px;");
 
     statusBar()->addWidget(m_fpsLabel);
-    statusBar()->addWidget(m_deviceStatusLabel);
     statusBar()->addWidget(m_bandwidthLabel);
-    statusBar()->addWidget(m_droppedLabel);
 }
 
 void QtWidgetsApplication1::connectSignals() {
@@ -204,8 +199,6 @@ void QtWidgetsApplication1::connectSignals() {
             this, &QtWidgetsApplication1::onApplyStream);
     connect(m_controlPanel->snapshotBtn(), &QPushButton::clicked,
             this, &QtWidgetsApplication1::onSnapshot);
-    connect(m_controlPanel->recordBtn(), &QPushButton::toggled,
-            this, &QtWidgetsApplication1::onToggleRecord);
 
     // 16-bit shift — 同步到 worker 线程
     connect(m_controlPanel->bitShiftSlider(), &QSlider::valueChanged,
@@ -280,10 +273,8 @@ void QtWidgetsApplication1::onOpenDevice() {
         m_controlPanel->setDeviceOpen(false);
         m_viewport->clearImage();
         m_viewport->setOverlayText("");
-        m_deviceStatusLabel->setText(TR("Device: Disconnected"));
         m_fpsLabel->setText(TR("FPS: --"));
         m_bandwidthLabel->setText(TR("Rx: -- MB/s"));
-        m_droppedLabel->setText(TR("Dropped: 0"));
         LOG_INFO("Device closed");
         return;
     }
@@ -453,8 +444,6 @@ void QtWidgetsApplication1::onOpenDevice() {
             .arg(info.product_id, 4, 16, QChar('0'))
             .arg(QString::fromStdString(info.name)));
 
-    m_deviceStatusLabel->setText(
-        TR("Device: %1").arg(QString::fromStdString(info.name)));
     LOG_INFO(QString("Device opened: %1").arg(QString::fromStdString(info.name)));
 }
 
@@ -475,8 +464,10 @@ void QtWidgetsApplication1::populateFormats() {
         for (auto& fmt : formats) {
             char fourcc[5] = {};
             memcpy(fourcc, &fmt.fourcc, 4);
+            QString fourccStr = QString::fromLatin1(fourcc, 4).trimmed();
+            if (fourccStr == "Y16") fourccStr = "Y12";
             QString label = QString("%1  %2x%3 @%4fps")
-                .arg(QString::fromLatin1(fourcc, 4).trimmed())
+                .arg(fourccStr)
                 .arg(fmt.width).arg(fmt.height).arg(fmt.fps);
             m_controlPanel->formatCombo()->addItem(label);
         }
@@ -529,8 +520,8 @@ void QtWidgetsApplication1::onApplyStream() {
     m_streaming = true;
     m_controlPanel->setStreaming(true);
     m_displayFrameCount = 0;
-    m_lastFrameBytes = 0;
-    m_lastFrameCount = 0;
+    m_frameTimes.clear();
+    m_frameBytes.clear();
 
     // 重置 worker 诊断计数器，确保新一轮启流的前3帧日志正常输出
     if (m_worker) m_worker->resetDiagCounters();
@@ -552,6 +543,13 @@ void QtWidgetsApplication1::onFrameProcessed(QImage img, ProcessedFrame parsed) 
     // 显示
     m_viewport->setImage(img);
 
+    m_frameTimes.append(QDateTime::currentDateTime().currentMSecsSinceEpoch());
+    m_frameBytes.append(m_camera ? m_camera->totalBytes() : 0);
+    while (m_frameTimes.size() > kFrameWindow) {
+        m_frameTimes.removeFirst();
+        m_frameBytes.removeFirst();
+    }
+
     // HUD overlay
     m_displayFrameCount++;
     auto now = QDateTime::currentDateTime();
@@ -560,13 +558,6 @@ void QtWidgetsApplication1::onFrameProcessed(QImage img, ProcessedFrame parsed) 
             .arg(now.toString("hh:mm:ss.zzz"))
             .arg(m_displayFrameCount));
 
-    // Recording
-    if (m_recording) {
-        QString filename = QString("record_%1_%2.png")
-            .arg(QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss"))
-            .arg(m_recordCounter++, 5, 10, QChar('0'));
-        img.save(filename, "PNG");
-    }
 }
 
 // ── Snapshot (all formats → TIFF via cv::imwrite) ──
@@ -582,6 +573,7 @@ void QtWidgetsApplication1::onSnapshot() {
 
     cv::Mat img(h, w, m_lastFrame.cv_type,
                 const_cast<uint8_t*>(m_lastFrame.data.data()));
+    cv::medianBlur(img, img, 3);
     cv::imwrite(filename.toStdString(), img);
 
     const char* desc = (m_lastFrame.cv_type == CV_16UC1) ? "16-bit TIFF"
@@ -589,18 +581,6 @@ void QtWidgetsApplication1::onSnapshot() {
                      : "Grayscale TIFF";
     LOG_INFO(QString("Snapshot saved: %1 (%2)").arg(filename, desc));
     m_snapshotCounter++;
-}
-
-void QtWidgetsApplication1::onToggleRecord(bool start) {
-    m_recording = start;
-    m_recordCounter = 0;
-    if (start) {
-        m_controlPanel->recordBtn()->setText(TR("Stop Recording"));
-        LOG_INFO("Recording started...");
-    } else {
-        m_controlPanel->recordBtn()->setText(TR("Record Sequence"));
-        LOG_INFO("Recording stopped.");
-    }
 }
 
 // ── Error handling ──
@@ -611,7 +591,6 @@ void QtWidgetsApplication1::onDeviceLost() {
     m_deviceOpen = false;
     m_streaming = false;
     m_viewport->clearImage();
-    m_deviceStatusLabel->setText(TR("Device: Disconnected"));
     m_controlPanel->setDeviceOpen(false);
     m_controlPanel->setStreaming(false);
 
@@ -628,32 +607,29 @@ void QtWidgetsApplication1::onStreamError(const QString& error) {
 void QtWidgetsApplication1::updateStats() {
     if (!m_camera || !m_streaming) return;
 
-    // Read from camera stats
-    uint64_t totalBytes = m_camera->totalBytes();
-    uint32_t totalFrames = m_camera->totalFrames();
-    uint32_t dropped = m_camera->droppedFrames();
+    if (m_frameTimes.size() < kFrameWindow) {
+        m_fpsLabel->setText(QString("FPS: --"));
+        m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
+        return;
+    }
 
-    double elapsed = m_statsElapsed.elapsed() / 1000.0;
-    if (elapsed < 0.1) return;
+    double dt = (m_frameTimes.last() - m_frameTimes.first()) / 1000.0;
+    if (dt < 0.1) return;
 
-    double fps = (totalFrames - m_lastFrameCount) / elapsed;
-    double mbps = (totalBytes - m_lastFrameBytes) / elapsed / (1024.0 * 1024.0);
+    double fps = (kFrameWindow - 1) / dt;
+    double mbps = (m_frameBytes.last() - m_frameBytes.first()) / dt / (1024.0 * 1024.0);
 
     m_fpsLabel->setText(QString("FPS: %1").arg(fps, 0, 'f', 1));
     m_bandwidthLabel->setText(QString("Rx: %1 MB/s").arg(mbps, 0, 'f', 1));
-    m_droppedLabel->setText(QString("Dropped: %1").arg(dropped));
-
-    m_lastFrameBytes = totalBytes;
-    m_lastFrameCount = totalFrames;
-    m_statsElapsed.restart();
 }
 
 // ── Helpers ──
 
 void QtWidgetsApplication1::stopAll() {
     if (m_camera) {
+        // 断开所有信号连接，防止后续销毁时残留排队事件
+        m_camera->disconnect();
         m_camera->stopStreaming();
     }
     m_streaming = false;
-    m_recording = false;
 }

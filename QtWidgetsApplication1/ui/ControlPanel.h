@@ -32,7 +32,6 @@ public:
 
     // Capture group
     QPushButton* snapshotBtn() { return m_snapshotBtn; }
-    QPushButton* recordBtn()   { return m_recordBtn; }
 
     // Log area
     QTextEdit* logView()       { return m_logView; }
@@ -74,7 +73,6 @@ private:
 
     // Capture
     QPushButton* m_snapshotBtn;
-    QPushButton* m_recordBtn;
 
     // Log
     QTextEdit*  m_logView;

@@ -31,9 +31,9 @@ inline QString uiTr(const char* key) {
 
         // ── Status bar ──
         {"FPS: --",            "帧率：--"},
-        {"Device: Disconnected","设备：未连接"},
+
         {"Rx: -- MB/s",        "接收：-- MB/s"},
-        {"Dropped: 0",         "丢帧：0"},
+
         {"Device: %1",         "设备：%1"},
 
         // ── Control panels ──
@@ -53,8 +53,7 @@ inline QString uiTr(const char* key) {
         {"Histogram Equalization","直方图均衡化"},
         {"Capture",             "采集"},
         {"Snapshot",            "抓拍"},
-        {"Record Sequence",     "连续录制"},
-        {"Stop Recording",      "停止录制"},
+
         {"System Log",          "系统日志"},
         {"16-bit Display",      "16位深度显示"},
         {"Shift:",              "偏移："},
@@ -80,9 +79,7 @@ inline QString uiTr(const char* key) {
         {"AE Mode",             "自动曝光模式"},
         {"Manual",              "手动"},
         {"Auto",                "自动"},
-        {"Shutter Priority",    "快门优先"},
-        {"Aperture Priority",   "光圈优先"},
-        {"AE Priority",         "曝光优先"},
+
         {"Focus",               "对焦"},
         {"Auto Focus",          "自动对焦"},
         {"Lens",                "镜头"},

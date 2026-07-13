@@ -101,10 +101,12 @@ QImage ProcessingWorker::frameToQImage(const ProcessedFrame& frame) {
                 .arg(expected).arg(frame.data.size()));
             return {};
         }
-        // BGR (OpenCV default) → RGB for QImage
+        // BGR (OpenCV default) → median filter → RGB for QImage
         cv::Mat bgr(h, w, CV_8UC3, const_cast<uint8_t*>(frame.data.data()));
+        cv::Mat filtered;
+        cv::medianBlur(bgr, filtered, 3);
         cv::Mat rgb;
-        cv::cvtColor(bgr, rgb, cv::COLOR_BGR2RGB);
+        cv::cvtColor(filtered, rgb, cv::COLOR_BGR2RGB);
         return QImage(rgb.data, rgb.cols, rgb.rows, rgb.step,
                       QImage::Format_RGB888).copy();
 
@@ -122,10 +124,14 @@ QImage ProcessingWorker::frameToQImage(const ProcessedFrame& frame) {
         std::vector<uint8_t> buf8(n);
         for (size_t i = 0; i < n; i++)
             buf8[i] = static_cast<uint8_t>((src16[i] >> shift) & 0xFF);
+        cv::Mat gray8(h, w, CV_8UC1, buf8.data());
+        cv::medianBlur(gray8, gray8, 3);
         return QImage(buf8.data(), w, h, QImage::Format_Grayscale8).copy();
 
     } else {
         // CV_8UC1 or unknown → grayscale passthrough
+        cv::Mat gray8(h, w, CV_8UC1, const_cast<uint8_t*>(frame.data.data()));
+        cv::medianBlur(gray8, gray8, 3);
         return QImage(frame.data.data(), w, h, QImage::Format_Grayscale8).copy();
     }
 }

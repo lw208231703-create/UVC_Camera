@@ -84,15 +84,8 @@ ControlPanel::ControlPanel(QWidget* parent)
         m_snapshotBtn->setMinimumHeight(40);
         m_snapshotBtn->setEnabled(false);
 
-        m_recordBtn = new QPushButton(TR("Record Sequence"));
-        m_recordBtn->setObjectName("captureBtn");
-        m_recordBtn->setMinimumHeight(40);
-        m_recordBtn->setEnabled(false);
-        m_recordBtn->setCheckable(true);
-
         auto* capLayout = new QVBoxLayout;
         capLayout->addWidget(m_snapshotBtn);
-        capLayout->addWidget(m_recordBtn);
 
         mainLayout->addWidget(makeGroup(TR("Capture"), capLayout));
     }
@@ -288,7 +281,6 @@ void ControlPanel::setStreaming(bool streaming) {
     m_openBtn->setEnabled(!streaming);
 
     m_snapshotBtn->setEnabled(streaming);
-    m_recordBtn->setEnabled(streaming);
 
     m_applyBtn->setText(streaming ? TR("Stop Streaming") : TR("Apply & Start Streaming"));
     m_applyBtn->setStyleSheet(streaming

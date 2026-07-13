@@ -5,6 +5,7 @@
 #include <QLabel>
 #include <QTimer>
 #include <QElapsedTimer>
+#include <QList>
 #include <QThread>
 #include <memory>
 #include <vector>
@@ -31,7 +32,7 @@ private slots:
     void onApplyStream();
     void onFrameProcessed(QImage img, ProcessedFrame parsed);
     void onSnapshot();
-    void onToggleRecord(bool start);
+
     void onDeviceLost();
     void onStreamError(const QString& error);
     void updateStats();
@@ -53,9 +54,7 @@ private:
     ControlPanel*  m_controlPanel;
 
     QLabel* m_fpsLabel;
-    QLabel* m_deviceStatusLabel;
     QLabel* m_bandwidthLabel;
-    QLabel* m_droppedLabel;
 
     // Hardware
     std::unique_ptr<LibuvcCameraDevice> m_camera;
@@ -76,18 +75,18 @@ private:
     // State
     bool m_deviceOpen = false;
     bool m_streaming = false;
-    bool m_recording = false;
+
     ProcessedFrame m_lastFrame;
     int m_bitShift = 8;  // 16-bit display: bit shift (8=MSB, 0=LSB)
 
     // Stats
     QTimer*         m_statsTimer;
     QElapsedTimer   m_statsElapsed;
-    uint64_t        m_lastFrameBytes = 0;
-    uint32_t        m_lastFrameCount = 0;
     uint32_t        m_displayFrameCount = 0;
+    static const int kFrameWindow = 10;
+    QList<uint64_t> m_frameTimes;   // last 10 frame timestamps (us)
+    QList<uint64_t> m_frameBytes;   // last 10 cumulative byte counts
 
     // Snapshot counter
     int m_snapshotCounter = 0;
-    int m_recordCounter = 0;
 };

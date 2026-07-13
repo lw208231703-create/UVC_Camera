@@ -8,8 +8,7 @@
 #include <QLineEdit>
 #include <QLabel>
 #include <QGroupBox>
-#include <QDoubleSpinBox>
-#include <QPushButton>
+
 #include <functional>
 
 class UvcControls;
@@ -51,27 +50,15 @@ private:
     // ── Exposure ──
     QLineEdit* m_exposureEdit;
     QComboBox* m_aeModeCombo;
-    QCheckBox* m_aePriorityCheck;
+    QLineEdit* m_fpsEdit;
+    QComboBox* m_pixelFormatCombo;
 
     // ── Exposure Timing Conversion ──
-    QDoubleSpinBox* m_pixelClockSpin;   // f_clk input (MHz)
-    QPushButton*    m_readTimingBtn;    // read HMAX/VMAX from register
-    QLabel* m_hmaxLabel;
-    QLabel* m_vmaxLabel;
-    QLabel* m_tlineLabel;              // T_line (μs)
-    QLabel* m_tframeLabel;             // T_frame (ms)
-    QLabel* m_fpsLabel;                // max FPS
-    QLabel* m_expRangeLabel;           // exposure range in μs
-    QDoubleSpinBox* m_usExpSpin;       // input exposure in μs
-    QLabel* m_lineResultLabel;         // converted line count
-    QLabel* m_actualUsLabel;           // actual μs after rounding
-    QPushButton* m_applyLineBtn;       // apply calculated lines to Exp. Time
     bool m_timingValid = false;
     uint16_t m_hmax = 0;
     uint32_t m_vmax = 0;
     double   m_pixelClockMHz = 74.25;
 
     void recalcTiming();               // recalculate T_line, range, etc.
-    void onUsExposureChanged();        // convert μs → lines
     void readTimingRegisters();        // read 0x51 for HMAX/VMAX
 };
