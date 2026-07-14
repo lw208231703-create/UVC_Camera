@@ -49,6 +49,10 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)..\third_party\win_compat;$(SolutionDir)..\third_party\opencv-core\opencv-build\install\include;$(SolutionDir)..\third_party\libusb\libusb;$(SolutionDir)..\third_party\libusb\msvc;$(SolutionDir)..\third_party\libuvc\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QT_NO_DEPRECATED_WARNINGS;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;LIBUSB_WINDOWS_HOTPLUG;LIBUVC_NUM_TRANSFER_BUFS=10;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <!-- 10 buffers × 10MB = 100MB (实测最优配置)
+           30 buffers 实测丢帧率从 4% 恶化到 27% (WinUSB/XHCI 过载)
+           1MB transfer size 实测丢帧率从 4% 恶化到 10% (更多 transfer 边界)
+           根本原因: FT602 FIFO 仅 32KB, 需硬件侧修复 -->
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
