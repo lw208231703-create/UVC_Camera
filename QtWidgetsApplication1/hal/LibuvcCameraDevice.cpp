@@ -2,6 +2,13 @@
 #include "DeviceEnumerator.h"
 #include "infra/LogManager.h"
 #include <libuvc/libuvc.h>
+
+// 阻止 winsock.h 的 timeval 重定义冲突 (libusb.h → winsock.h vs sys/time.h)
+#ifndef _WINSOCKAPI_
+#define _WINSOCKAPI_
+#endif
+#include <libuvc/libuvc_internal.h>
+#include <libusb.h>
 #include <cstring>
 
 LibuvcCameraDevice::LibuvcCameraDevice(QObject* parent)
@@ -216,6 +223,75 @@ bool LibuvcCameraDevice::startStreaming() {
     m_warmupCounter = 0;
 
     LOG_INFO(QString("Streaming started: %1x%2").arg(m_currentFormat.width).arg(m_currentFormat.height));
+
+    // ── USB 环境诊断 (libusb 版本、设备速度、RAW_IO 状态) ──
+    {
+        const struct libusb_version* v = libusb_get_version();
+        LOG_INFO(QString("[USB Env] libusb %1.%2.%3.%4 (API 0x%5)")
+            .arg(v->major).arg(v->minor).arg(v->micro).arg(v->nano)
+            .arg(LIBUSB_API_VERSION, 0, 16));
+
+        libusb_device_handle* usbh = uvc_get_libusb_handle(m_devh);
+        if (usbh) {
+            libusb_device* dev = libusb_get_device(usbh);
+            int speed = libusb_get_device_speed(dev);
+            const char* speedName = "Unknown";
+            switch (speed) {
+                case 1: speedName = "Low"; break;
+                case 2: speedName = "Full"; break;
+                case 3: speedName = "High"; break;
+                case 4: speedName = "SuperSpeed"; break;
+                case 5: speedName = "SuperSpeedPlus"; break;
+                case 6: speedName = "SuperSpeedPlusX2"; break;
+            }
+            LOG_INFO(QString("[USB Env] device speed: %1 (%2)").arg(speedName).arg(speed));
+
+            // 获取 bulk IN endpoint 地址并检查 RAW_IO
+            uint8_t endpoint = 0;
+            const uvc_format_desc_t* fmtDesc = uvc_get_format_descs(m_devh);
+            while (fmtDesc) {
+                if (fmtDesc->bFormatIndex == m_currentFormat.bFormatIndex) {
+                    // parent 是 uvc_streaming_interface, 在 libuvc_internal.h 中定义
+                    endpoint = fmtDesc->parent->bEndpointAddress;
+                    break;
+                }
+                fmtDesc = fmtDesc->next;
+            }
+
+            if (endpoint) {
+                int maxPacket = libusb_get_max_packet_size(dev, endpoint);
+                LOG_INFO(QString("[USB Env] bulk endpoint: 0x%1  max_packet: %2 bytes")
+                    .arg(endpoint, 2, 16, QChar('0')).arg(maxPacket));
+
+#if defined(_WIN32) && defined(LIBUSB_API_VERSION) && (LIBUSB_API_VERSION >= 0x0100010C)
+                int supportsRaw = libusb_endpoint_supports_raw_io(usbh, endpoint);
+                if (supportsRaw == 1) {
+                    int maxRaw = libusb_get_max_raw_io_transfer_size(usbh, endpoint);
+                    size_t payload = m_streamCtrl->dwMaxPayloadTransferSize;
+                    size_t aligned = ((payload + maxPacket - 1) / maxPacket) * (size_t)maxPacket;
+                    LOG_INFO(QString("[USB Env] RAW_IO: supported (max_transfer=%1 bytes / %2 KB)")
+                        .arg(maxRaw).arg(maxRaw / 1024.0, 0, 'f', 1));
+                    LOG_INFO(QString("[USB Env] RAW_IO: request aligned %1 → %2 bytes")
+                        .arg(payload).arg(aligned));
+                    if ((int)aligned > maxRaw) {
+                        // stream.c 会 cap 到 maxRaw 并启用 RAW_IO (多 transfer 组装)
+                        size_t capped = ((size_t)maxRaw / (size_t)maxPacket) * (size_t)maxPacket;
+                        LOG_INFO(QString("[USB Env] RAW_IO: ENABLED (capped %1 → %2 bytes, %3 transfers/frame)")
+                            .arg(aligned).arg(capped)
+                            .arg((m_streamCtrl->dwMaxVideoFrameSize + capped - 1) / capped));
+                    } else {
+                        LOG_INFO("[USB Env] RAW_IO: ENABLED (by libuvc stream.c)");
+                    }
+                } else {
+                    LOG_INFO(QString("[USB Env] RAW_IO: NOT supported (rc=%1) — using normal WinUSB path")
+                        .arg(supportsRaw));
+                }
+#else
+                LOG_INFO("[USB Env] RAW_IO: not compiled (libusb < 1.0.30)");
+#endif
+            }
+        }
+    }
 
     // ── 流启动诊断信息 ──
     if (m_streamCtrl) {
