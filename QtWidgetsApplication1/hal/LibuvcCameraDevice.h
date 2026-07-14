@@ -46,6 +46,8 @@ public:
     uint64_t totalBytes() const    { return m_totalBytes; }
     uint32_t totalFrames() const   { return m_totalFrames; }
     uint32_t droppedFrames() const { return m_droppedFrames; }
+    uint32_t realDroppedFrames() const { return m_realDroppedFrames; }
+    uint32_t minorShortFrames() const  { return m_minorShortFrames; }
     QString lastError() const         { return m_lastError; }
 
 signals:
@@ -78,8 +80,17 @@ private:
     std::atomic<uint64_t> m_totalBytes{0};
     std::atomic<uint32_t> m_totalFrames{0};
     std::atomic<uint32_t> m_droppedFrames{0};
+    std::atomic<uint32_t> m_realDroppedFrames{0};   // diff > kRealDropThreshold: 真实丢包
+    std::atomic<uint32_t> m_minorShortFrames{0};     // diff <= kHeaderTolerance: UVC header 或微小容差
     std::atomic<uint32_t> m_callbackLogCount{0};
+    std::atomic<uint32_t> m_statsLogCounter{0};      // 周期性统计日志计数
     uint32_t              m_lastFrameSequence = 0;
+
+    // 尺寸容差常量
+    // UVC payload header = 12 字节; diff <= 此值视为正常 (header 未剥或微小时序抖动)
+    static constexpr int64_t kHeaderTolerance = 16;
+    // diff > 此值视为真实丢包 (USB 传输截断/FIFO 溢出)
+    static constexpr int64_t kRealDropThreshold = 1024;
 
     // Warmup: skip first N frames after stream start (USB pipe not yet stable)
     static constexpr uint32_t kWarmupFrames = 1;

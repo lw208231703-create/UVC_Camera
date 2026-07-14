@@ -208,7 +208,10 @@ bool LibuvcCameraDevice::startStreaming() {
     m_totalBytes = 0;
     m_totalFrames = 0;
     m_droppedFrames = 0;
+    m_realDroppedFrames = 0;
+    m_minorShortFrames = 0;
     m_callbackLogCount = 0;
+    m_statsLogCounter = 0;
     m_lastFrameSequence = 0;
     m_warmupCounter = 0;
 
@@ -231,11 +234,21 @@ bool LibuvcCameraDevice::startStreaming() {
         LOG_INFO(QString("[Stream Diag]   格式索引: %1  帧索引: %2  接口: %3")
             .arg(ctrl->bFormatIndex).arg(ctrl->bFrameIndex).arg(ctrl->bInterfaceNumber));
 
-        // USB 3.0 burst: max_burst=16, max_packet_size=1024 → 16KB 理论极限
-        double maxUsb3PerMicroframe = 1024.0 * 16.0; // 16KB
-        double utilizationPct = ctrl->dwMaxPayloadTransferSize / maxUsb3PerMicroframe * 100.0;
-        LOG_INFO(QString("[Stream Diag]   USB 3.0 16KB FIFO 利用率: %1% (100% = burst×16 模式)")
-            .arg(utilizationPct, 0, 'f', 1));
+        // USB 3.0 bulk 传输配置诊断
+        bool isWholeFrame = ctrl->dwMaxPayloadTransferSize >= ctrl->dwMaxVideoFrameSize;
+        double xferKB = ctrl->dwMaxPayloadTransferSize / 1024.0;
+        double poolMB = xferKB * LIBUVC_NUM_TRANSFER_BUFS / 1024.0;
+        int transfersPerFrame = (int)((ctrl->dwMaxVideoFrameSize + ctrl->dwMaxPayloadTransferSize - 1) / ctrl->dwMaxPayloadTransferSize);
+
+        LOG_INFO(QString("[Stream Diag]   传输模式: %1")
+            .arg(isWholeFrame ? "整帧 Bulk 传输" : "分片 Bulk 传输"));
+        LOG_INFO(QString("[Stream Diag]   每次 transfer: %1 KB")
+            .arg(xferKB, 0, 'f', 1));
+        LOG_INFO(QString("[Stream Diag]   Buffer 池: %1 个 x %2 KB = %3 MB")
+            .arg(LIBUVC_NUM_TRANSFER_BUFS)
+            .arg(xferKB, 0, 'f', 1)
+            .arg(poolMB, 0, 'f', 1));
+        LOG_INFO(QString("[Stream Diag]   每帧 transfer 数: ~%1").arg(transfersPerFrame));
         LOG_INFO(QString("[Stream Diag] ==============================="));
     }
 
@@ -306,19 +319,21 @@ void LibuvcCameraDevice::frameCallback(struct uvc_frame* uvcFrame, void* userPtr
             .arg(frame.frame_index));
     }
 
-    // Drop detection via sequence gap
+    // Drop detection via sequence gap (complete frame loss — frame never delivered)
     if (self->m_lastFrameSequence != 0 &&
         uvcFrame->sequence != self->m_lastFrameSequence + 1) {
         uint32_t gap = (uvcFrame->sequence > self->m_lastFrameSequence + 1)
             ? (uvcFrame->sequence - self->m_lastFrameSequence - 1) : 1;
         self->m_droppedFrames += gap;
-        LOG_WARNING(QString("[Drop] seq skip: last=%1 got=%2 gap=%3 (total=%4)")
+        self->m_realDroppedFrames += gap;
+        LOG_WARNING(QString("[REAL DROP] seq skip: last=%1 got=%2 gap=%3 (total_real=%4)")
             .arg(self->m_lastFrameSequence).arg(uvcFrame->sequence)
-            .arg(gap).arg(self->m_droppedFrames.load()));
+            .arg(gap).arg(self->m_realDroppedFrames.load()));
     }
     self->m_lastFrameSequence = uvcFrame->sequence;
 
     // Drop detection via data size (BULK truncation)
+    // 区分 UVC header 未剥离的假告警 (diff<=16) 和真实 USB 丢包 (diff>1024)
     {
         size_t expected = 0;
         if (uvcFrame->frame_format == UVC_FRAME_FORMAT_GRAY16)
@@ -328,17 +343,49 @@ void LibuvcCameraDevice::frameCallback(struct uvc_frame* uvcFrame, void* userPtr
         else if (uvcFrame->frame_format == UVC_FRAME_FORMAT_YUYV)
             expected = (size_t)uvcFrame->width * uvcFrame->height * 2;
 
-        if (expected > 0 && uvcFrame->data_bytes != expected) {
-            self->m_droppedFrames++;
-            LOG_WARNING(QString("[Drop] size mismatch seq=%1: got=%2 expected=%3 (diff=%4)")
-                .arg(uvcFrame->sequence)
-                .arg(uvcFrame->data_bytes).arg(expected)
-                .arg((int64_t)expected - (int64_t)uvcFrame->data_bytes));
+        if (expected > 0) {
+            int64_t diff = (int64_t)expected - (int64_t)uvcFrame->data_bytes;
+            if (diff > 0) {
+                if (diff <= kHeaderTolerance) {
+                    // UVC payload header (12B) 未剥离或微小时序抖动 — 非真实丢包
+                    self->m_minorShortFrames.fetch_add(1, std::memory_order_relaxed);
+                } else if (diff > kRealDropThreshold) {
+                    // 真实丢包: USB 传输截断 / FT602 FIFO 溢出 / XHCI 调度抖动
+                    self->m_realDroppedFrames.fetch_add(1, std::memory_order_relaxed);
+                    self->m_droppedFrames.fetch_add(1, std::memory_order_relaxed);
+                    double lossPct = diff * 100.0 / (double)expected;
+                    LOG_WARNING(QString("[REAL DROP] seq=%1: got=%2 expected=%3 (diff=%4, %5%)")
+                        .arg(uvcFrame->sequence)
+                        .arg(uvcFrame->data_bytes).arg(expected)
+                        .arg(diff).arg(lossPct, 0, 'f', 1));
+                } else {
+                    // 16 < diff <= 1024: 临界区间, 记录但不计为真实丢包
+                    self->m_minorShortFrames.fetch_add(1, std::memory_order_relaxed);
+                    if (self->m_statsLogCounter.load() % 50 == 0)
+                        LOG_INFO(QString("[Minor Short] seq=%1 diff=%2 (tolerance zone)")
+                            .arg(uvcFrame->sequence).arg(diff));
+                }
+            }
         }
     }
 
     self->m_totalFrames++;
     self->m_totalBytes += uvcFrame->data_bytes;
+
+    // ── 周期性统计: 每 100 帧输出真实丢帧率 ──
+    {
+        uint32_t statsIdx = self->m_statsLogCounter.fetch_add(1, std::memory_order_relaxed);
+        if (statsIdx > 0 && statsIdx % 100 == 0) {
+            uint32_t total   = self->m_totalFrames.load();
+            uint32_t realDrops = self->m_realDroppedFrames.load();
+            uint32_t minor    = self->m_minorShortFrames.load();
+            double realDropRate = total > 0 ? realDrops * 100.0 / total : 0.0;
+            LOG_INFO(QString("[Stats] frames=%1 real_drops=%2 (%3%) minor_short=%4 seq=%5")
+                .arg(total).arg(realDrops)
+                .arg(realDropRate, 0, 'f', 2)
+                .arg(minor).arg(uvcFrame->sequence));
+        }
+    }
 
     emit self->frameReady(frame);
 }
