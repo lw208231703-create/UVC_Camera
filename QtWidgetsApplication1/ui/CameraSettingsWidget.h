@@ -50,8 +50,12 @@ private:
     // ── Exposure ──
     QLineEdit* m_exposureEdit;
     QComboBox* m_aeModeCombo;
+
+    // ── Sensor Config (帧率/像素格式) ──
     QLineEdit* m_fpsEdit;
     QComboBox* m_pixelFormatCombo;
+    QLineEdit* m_roiXEdit;
+    QLineEdit* m_roiYEdit;
 
     // ── Exposure Timing Conversion ──
     bool m_timingValid = false;

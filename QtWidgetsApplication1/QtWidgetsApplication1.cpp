@@ -15,11 +15,9 @@
 #include "core/CameraTypes.h"
 
 #include <algorithm>
-#include <QMenuBar>
 #include <QStatusBar>
 #include <QMessageBox>
 #include <QVBoxLayout>
-#include <QFileDialog>
 #include <QDateTime>
 #include <QCloseEvent>
 #include <QApplication>
@@ -38,7 +36,6 @@ QtWidgetsApplication1::QtWidgetsApplication1(QWidget* parent)
 
     setupUi();
     setupStyleSheet();
-    setupMenuBar();
     setupStatusBar();
     connectSignals();
 
@@ -127,10 +124,6 @@ void QtWidgetsApplication1::setupStyleSheet() {
         }
         QMainWindow::separator { background-color: #3E3E42; width: 1px; }
         QSplitter::handle { background-color: #3E3E42; }
-        QMenuBar { background-color: #1E1E1E; border-bottom: 1px solid #3E3E42; }
-        QMenuBar::item:selected { background-color: #3C3C3C; }
-        QMenu { background-color: #252526; border: 1px solid #3E3E42; }
-        QMenu::item:selected { background-color: #094771; }
         QPushButton {
             background-color: #2D2D2D; border: 1px solid #3E3E42;
             border-radius: 4px; padding: 6px 12px; color: #CCCCCC;
@@ -164,24 +157,6 @@ void QtWidgetsApplication1::setupStyleSheet() {
         QScrollBar::handle:vertical:hover { background: #4E4E4E; }
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
     )"));
-}
-
-void QtWidgetsApplication1::setupMenuBar() {
-    auto* fileMenu = menuBar()->addMenu(TR("&File"));
-    fileMenu->addAction(TR("&Load Config..."), [this]() {
-        QString path = QFileDialog::getOpenFileName(this, TR("&Load Config..."), "", "JSON (*.json)");
-        if (!path.isEmpty()) ConfigManager::instance().load(path);
-    });
-    fileMenu->addAction(TR("&Save Config..."), [this]() {
-        QString path = QFileDialog::getSaveFileName(this, TR("&Save Config..."), "", "JSON (*.json)");
-        if (!path.isEmpty()) ConfigManager::instance().save(path);
-    });
-    fileMenu->addSeparator();
-    fileMenu->addAction(TR("E&xit"), this, &QWidget::close);
-
-    menuBar()->addMenu(TR("&View"))->addAction(TR("&Fit to Window"));
-    menuBar()->addMenu(TR("&Capture"))->addAction(TR("&Snapshot"), this, &QtWidgetsApplication1::onSnapshot);
-    menuBar()->addMenu(TR("&Help"))->addAction(TR("&About"));
 }
 
 void QtWidgetsApplication1::setupStatusBar() {
@@ -532,8 +507,11 @@ void QtWidgetsApplication1::onApplyStream() {
     m_streaming = true;
     m_controlPanel->setStreaming(true);
     m_displayFrameCount = 0;
-    m_frameTimes.clear();
-    m_frameBytes.clear();
+    m_statsFrameCount  = 0;
+    m_statsByteCount   = 0;
+    m_lastStatsSampleTime  = 0;
+    m_lastStatsSampleFrames = 0;
+    m_lastStatsSampleBytes  = 0;
 
     // 重置 worker 诊断计数器，确保新一轮启流的前3帧日志正常输出
     if (m_worker) m_worker->resetDiagCounters();
@@ -555,12 +533,9 @@ void QtWidgetsApplication1::onFrameProcessed(QImage img, ProcessedFrame parsed) 
     // 显示
     m_viewport->setImage(img);
 
-    m_frameTimes.append(QDateTime::currentDateTime().currentMSecsSinceEpoch());
-    m_frameBytes.append(m_camera ? m_camera->totalBytes() : 0);
-    while (m_frameTimes.size() > kFrameWindow) {
-        m_frameTimes.removeFirst();
-        m_frameBytes.removeFirst();
-    }
+    // Stats: 累计计数器
+    m_statsFrameCount++;
+    if (m_camera) m_statsByteCount = m_camera->totalBytes();
 
     // HUD overlay
     m_displayFrameCount++;
@@ -618,22 +593,39 @@ void QtWidgetsApplication1::onStreamError(const QString& error) {
 // ── Stats update ──
 
 void QtWidgetsApplication1::updateStats() {
-    if (!m_camera || !m_streaming) return;
-
-    if (m_frameTimes.size() < kFrameWindow) {
+    if (!m_camera || !m_streaming) {
         m_fpsLabel->setText(QString("FPS: --"));
         m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
         return;
     }
 
-    double dt = (m_frameTimes.last() - m_frameTimes.first()) / 1000.0;
-    if (dt < 0.1) return;
+    qint64 now = QDateTime::currentDateTime().currentMSecsSinceEpoch();
+    if (m_lastStatsSampleTime == 0) {
+        // 首次采样：记录基线
+        m_lastStatsSampleTime  = now;
+        m_lastStatsSampleFrames = m_statsFrameCount;
+        m_lastStatsSampleBytes  = m_statsByteCount;
+        m_fpsLabel->setText(QString("FPS: --"));
+        m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
+        return;
+    }
 
-    double fps = (kFrameWindow - 1) / dt;
-    double mbps = (m_frameBytes.last() - m_frameBytes.first()) / dt / (1024.0 * 1024.0);
+    double elapsed = (now - m_lastStatsSampleTime) / 1000.0;
+    if (elapsed < 0.5) return; // 间隔不够，继续累积
+
+    uint64_t frames = m_statsFrameCount - m_lastStatsSampleFrames;
+    uint64_t bytes  = m_statsByteCount - m_lastStatsSampleBytes;
+
+    double fps  = frames / elapsed;
+    double mbps = bytes / elapsed / (1024.0 * 1024.0);
 
     m_fpsLabel->setText(QString("FPS: %1").arg(fps, 0, 'f', 1));
     m_bandwidthLabel->setText(QString("Rx: %1 MB/s").arg(mbps, 0, 'f', 1));
+
+    // 更新采样点
+    m_lastStatsSampleTime  = now;
+    m_lastStatsSampleFrames = m_statsFrameCount;
+    m_lastStatsSampleBytes  = m_statsByteCount;
 }
 
 void QtWidgetsApplication1::updateDetectorTemperature() {

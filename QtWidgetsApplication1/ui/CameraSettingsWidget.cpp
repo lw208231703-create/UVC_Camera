@@ -179,6 +179,24 @@ void CameraSettingsWidget::setupUi() {
         lay->addWidget(makeComboRow(TR("AE Mode"), m_aeModeCombo));
         m_aeModeCombo->addItem(TR("Manual"), 1);
         m_aeModeCombo->addItem(TR("Auto"), 2);
+        connect(m_aeModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+                [this](int idx) {
+            if (!m_updating && m_i2cBridge && m_i2cBridge->isValid()) {
+                uint8_t data[16] = {};
+                if (m_aeModeCombo->itemData(idx).toUInt() == 2) // Auto
+                    data[0] = 0x01;
+                m_i2cBridge->writeReg(0x40, data, 16);
+            }
+        });
+
+        main->addWidget(grp);
+    }
+
+    // ── Sensor Config (帧率/像素格式) ──
+    {
+        auto* grp = makeGroup(TR("探测器"));
+        auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
+
         lay->addWidget(makeInputRow(TR("帧率"), m_fpsEdit, ""));
         m_fpsEdit->setValidator(new QIntValidator(0, 65535, m_fpsEdit));
         connect(m_fpsEdit, &QLineEdit::editingFinished, this, [this]() {
@@ -201,14 +219,40 @@ void CameraSettingsWidget::setupUi() {
             m_i2cBridge->writeReg(0x50, data, 16);
         });
 
-        connect(m_aeModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-                [this](int idx) {
-            if (!m_updating && m_i2cBridge && m_i2cBridge->isValid()) {
-                uint8_t data[16] = {};
-                if (m_aeModeCombo->itemData(idx).toUInt() == 2) // Auto
-                    data[0] = 0x01;
-                m_i2cBridge->writeReg(0x40, data, 16);
-            }
+        lay->addWidget(makeInputRow(TR("开窗X"), m_roiXEdit, "0"));
+        m_roiXEdit->setValidator(new QIntValidator(0, 2560, m_roiXEdit));
+        connect(m_roiXEdit, &QLineEdit::editingFinished, this, [this]() {
+            if (m_updating || !m_i2cBridge || !m_i2cBridge->isValid()) return;
+            bool ok;
+            int val = m_roiXEdit->text().toInt(&ok);
+            if (!ok) return;
+            // 读当前寄存器保留Y值
+            uint8_t cur[16] = {};
+            m_i2cBridge->readReg(0x54, cur, 16);
+            // X: 对齐到8 + 112偏置，写入低8字节
+            int alignedX = (val / 8) * 8;
+            uint64_t xVal = (uint64_t)(alignedX + 112);
+            for (int i = 0; i < 8; i++) cur[i] = (uint8_t)((xVal >> (i * 8)) & 0xFF);
+            m_i2cBridge->writeReg(0x54, cur, 16);
+            m_roiXEdit->setText(QString::number(alignedX));
+        });
+
+        lay->addWidget(makeInputRow(TR("开窗Y"), m_roiYEdit, "0"));
+        m_roiYEdit->setValidator(new QIntValidator(0, 2048, m_roiYEdit));
+        connect(m_roiYEdit, &QLineEdit::editingFinished, this, [this]() {
+            if (m_updating || !m_i2cBridge || !m_i2cBridge->isValid()) return;
+            bool ok;
+            int val = m_roiYEdit->text().toInt(&ok);
+            if (!ok) return;
+            // 读当前寄存器保留X值
+            uint8_t cur[16] = {};
+            m_i2cBridge->readReg(0x54, cur, 16);
+            // Y: 对齐到4 + 4偏置，写入高8字节
+            int alignedY = (val / 4) * 4;
+            uint64_t yVal = (uint64_t)(alignedY + 4);
+            for (int i = 0; i < 8; i++) cur[8 + i] = (uint8_t)((yVal >> (i * 8)) & 0xFF);
+            m_i2cBridge->writeReg(0x54, cur, 16);
+            m_roiYEdit->setText(QString::number(alignedY));
         });
 
         main->addWidget(grp);
@@ -253,8 +297,22 @@ void CameraSettingsWidget::refreshAll() {
             for (int i = 0; i < m_pixelFormatCombo->count(); i++) {
                 if (m_pixelFormatCombo->itemData(i).toUInt() == fmtBuf[0]) {
                     m_pixelFormatCombo->setCurrentIndex(i); break;
-                }
-            }
+        }
+        uint8_t roiBuf[16] = {};
+        if (m_i2cBridge->readReg(0x54, roiBuf, 16) == 16) {
+            uint64_t xReg = 0;
+            for (int i = 0; i < 8; i++) xReg |= (uint64_t)roiBuf[i] << (i * 8);
+            int roiX = (int)xReg - 112;
+            if (roiX < 0) roiX = 0;
+            m_roiXEdit->setText(QString::number(roiX));
+
+            uint64_t yReg = 0;
+            for (int i = 0; i < 8; i++) yReg |= (uint64_t)roiBuf[8 + i] << (i * 8);
+            int roiY = (int)yReg - 4;
+            if (roiY < 0) roiY = 0;
+            m_roiYEdit->setText(QString::number(roiY));
+        }
+    }
         }
     }
 

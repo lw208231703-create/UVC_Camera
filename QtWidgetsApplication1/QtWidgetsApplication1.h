@@ -41,7 +41,6 @@ private slots:
 private:
     void setupUi();
     void setupStyleSheet();
-    void setupMenuBar();
     void setupStatusBar();
     void connectSignals();
     void closeEvent(QCloseEvent* event) override;
@@ -86,9 +85,11 @@ private:
     QTimer*         m_temperatureTimer;
     QElapsedTimer   m_statsElapsed;
     uint32_t        m_displayFrameCount = 0;
-    static const int kFrameWindow = 10;
-    QList<uint64_t> m_frameTimes;   // last 10 frame timestamps (us)
-    QList<uint64_t> m_frameBytes;   // last 10 cumulative byte counts
+    uint64_t        m_statsFrameCount  = 0;   // 累计帧数 (onFrameProcessed 递增)
+    uint64_t        m_statsByteCount   = 0;   // 累计字节数
+    qint64          m_lastStatsSampleTime  = 0; // 上次采样时间 (ms)
+    uint64_t        m_lastStatsSampleFrames = 0;
+    uint64_t        m_lastStatsSampleBytes  = 0;
 
     // Snapshot counter
     int m_snapshotCounter = 0;
