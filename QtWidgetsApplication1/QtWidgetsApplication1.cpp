@@ -69,6 +69,13 @@ QtWidgetsApplication1::QtWidgetsApplication1(QWidget* parent)
     m_statsTimer->start();
     m_statsElapsed.start();
 
+    // Detector temperature is read independently of the video stream.
+    m_temperatureTimer = new QTimer(this);
+    m_temperatureTimer->setInterval(1000);
+    connect(m_temperatureTimer, &QTimer::timeout,
+            this, &QtWidgetsApplication1::updateDetectorTemperature);
+    m_temperatureTimer->start();
+
     // Auto-refresh on startup
     onRefreshDevices();
 
@@ -180,13 +187,15 @@ void QtWidgetsApplication1::setupMenuBar() {
 void QtWidgetsApplication1::setupStatusBar() {
     m_fpsLabel          = new QLabel(TR("FPS: --"));
     m_bandwidthLabel    = new QLabel(TR("Rx: -- MB/s"));
+    m_temperatureLabel  = new QLabel(TR("Detector Temp: --"));
 
-    for (auto* lbl : {m_fpsLabel, m_bandwidthLabel}) {
+    for (auto* lbl : {m_fpsLabel, m_bandwidthLabel, m_temperatureLabel}) {
         lbl->setStyleSheet("color:#FFFFFF; padding: 0 10px;");
     }
 
     statusBar()->addWidget(m_fpsLabel);
     statusBar()->addWidget(m_bandwidthLabel);
+    statusBar()->addWidget(m_temperatureLabel);
 }
 
 void QtWidgetsApplication1::connectSignals() {
@@ -275,6 +284,7 @@ void QtWidgetsApplication1::onOpenDevice() {
         m_viewport->setOverlayText("");
         m_fpsLabel->setText(TR("FPS: --"));
         m_bandwidthLabel->setText(TR("Rx: -- MB/s"));
+        m_temperatureLabel->setText(TR("Detector Temp: --"));
         LOG_INFO("Device closed");
         return;
     }
@@ -432,6 +442,8 @@ void QtWidgetsApplication1::onOpenDevice() {
 
     m_deviceOpen = true;
     m_controlPanel->setDeviceOpen(true);
+
+    updateDetectorTemperature();
 
     // Populate format/resolution combos
     populateFormats();
@@ -593,6 +605,7 @@ void QtWidgetsApplication1::onDeviceLost() {
     m_viewport->clearImage();
     m_controlPanel->setDeviceOpen(false);
     m_controlPanel->setStreaming(false);
+    m_temperatureLabel->setText(TR("Detector Temp: --"));
 
     QMessageBox::critical(this, TR("Device Lost"),
         TR("The camera device was disconnected.\nAll controls have been released."));
@@ -621,6 +634,27 @@ void QtWidgetsApplication1::updateStats() {
 
     m_fpsLabel->setText(QString("FPS: %1").arg(fps, 0, 'f', 1));
     m_bandwidthLabel->setText(QString("Rx: %1 MB/s").arg(mbps, 0, 'f', 1));
+}
+
+void QtWidgetsApplication1::updateDetectorTemperature() {
+    if (!m_deviceOpen || !m_i2cBridge || !m_i2cBridge->isValid()) {
+        m_temperatureLabel->setText(TR("Detector Temp: --"));
+        return;
+    }
+
+    // Register 0x44: read 2 bytes in little-endian order and use bits [10:3].
+    uint8_t buf[2] = {};
+    if (m_i2cBridge->readReg(0x44, buf, 2) != 2) {
+        m_temperatureLabel->setText(TR("Detector Temp: --"));
+        return;
+    }
+
+    const uint16_t raw = static_cast<uint16_t>(buf[0])
+                       | (static_cast<uint16_t>(buf[1]) << 8);
+    const uint16_t raw12 = raw & 0x0FFF;
+    const uint8_t temperature = static_cast<uint8_t>((raw12 >> 3) & 0xFF);
+    m_temperatureLabel->setText(
+        TR("Detector Temp: %1 °C").arg(static_cast<unsigned int>(temperature)));
 }
 
 // ── Helpers ──

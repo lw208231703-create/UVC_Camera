@@ -33,6 +33,8 @@ inline QString uiTr(const char* key) {
         {"FPS: --",            "帧率：--"},
 
         {"Rx: -- MB/s",        "接收：-- MB/s"},
+        {"Detector Temp: --",  "探测器温度：--"},
+        {"Detector Temp: %1 °C","探测器温度：%1 °C"},
 
         {"Device: %1",         "设备：%1"},
 

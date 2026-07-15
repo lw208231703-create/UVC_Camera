@@ -36,6 +36,7 @@ private slots:
     void onDeviceLost();
     void onStreamError(const QString& error);
     void updateStats();
+    void updateDetectorTemperature();
 
 private:
     void setupUi();
@@ -55,6 +56,7 @@ private:
 
     QLabel* m_fpsLabel;
     QLabel* m_bandwidthLabel;
+    QLabel* m_temperatureLabel;
 
     // Hardware
     std::unique_ptr<LibuvcCameraDevice> m_camera;
@@ -81,6 +83,7 @@ private:
 
     // Stats
     QTimer*         m_statsTimer;
+    QTimer*         m_temperatureTimer;
     QElapsedTimer   m_statsElapsed;
     uint32_t        m_displayFrameCount = 0;
     static const int kFrameWindow = 10;
