@@ -180,13 +180,13 @@ void CameraSettingsWidget::setupUi() {
         m_aeModeCombo->addItem(TR("Manual"), 1);
         m_aeModeCombo->addItem(TR("Auto"), 2);
         lay->addWidget(makeInputRow(TR("帧率"), m_fpsEdit, ""));
-        m_fpsEdit->setValidator(new QIntValidator(0, 255, m_fpsEdit));
+        m_fpsEdit->setValidator(new QIntValidator(0, 65535, m_fpsEdit));
         connect(m_fpsEdit, &QLineEdit::editingFinished, this, [this]() {
             if (m_updating || !m_i2cBridge || !m_i2cBridge->isValid()) return;
             bool ok;
             int val = m_fpsEdit->text().toInt(&ok);
             if (!ok) return;
-            uint8_t data[2] = { 0, (uint8_t)val };
+            uint8_t data[2] = { (uint8_t)(val & 0xFF), (uint8_t)(val >> 8) };
             m_i2cBridge->writeReg(0x10, data, 2);
         });
 
@@ -245,7 +245,8 @@ void CameraSettingsWidget::refreshAll() {
     if (m_i2cBridge && m_i2cBridge->isValid()) {
         uint8_t fpsBuf[2] = {};
         if (m_i2cBridge->readReg(0x10, fpsBuf, 2) == 2) {
-            m_fpsEdit->setText(QString::number(fpsBuf[1]));
+            uint16_t fps = fpsBuf[0] | (fpsBuf[1] << 8);
+            m_fpsEdit->setText(QString::number(fps));
         }
         uint8_t fmtBuf[16] = {};
         if (m_i2cBridge->readReg(0x50, fmtBuf, 16) == 16) {
