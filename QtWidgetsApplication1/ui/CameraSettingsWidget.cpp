@@ -245,7 +245,7 @@ void CameraSettingsWidget::refreshAll() {
     if (m_i2cBridge && m_i2cBridge->isValid()) {
         uint8_t fpsBuf[2] = {};
         if (m_i2cBridge->readReg(0x10, fpsBuf, 2) == 2) {
-            uint16_t fps = fpsBuf[0] | (fpsBuf[1] << 8);
+            uint16_t fps = (fpsBuf[1] << 8) | fpsBuf[0];
             m_fpsEdit->setText(QString::number(fps));
         }
         uint8_t fmtBuf[16] = {};
