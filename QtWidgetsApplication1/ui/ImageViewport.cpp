@@ -69,9 +69,23 @@ void ImageViewport::resizeEvent(QResizeEvent* event) {
 }
 
 void ImageViewport::wheelEvent(QWheelEvent* event) {
+    QPointF mousePos = event->position();
+
+    // 缩放前：计算鼠标在图像上的坐标
+    QRectF ir = imageRect();
+    QPointF imgPos = (mousePos - ir.topLeft()) / m_scale;
+
+    // 缩放
     double factor = (event->angleDelta().y() > 0) ? 1.15 : 1.0 / 1.15;
     m_scale = qBound(0.05, m_scale * factor, 20.0);
     m_fitToWindow = false;
+
+    // 缩放后：调整 offset 使鼠标位置对应的图像点保持不变
+    QSizeF sz = m_pixmap.size() * m_scale;
+    QPointF expectedTopLeft = mousePos - imgPos * m_scale;
+    QPointF center((width() - sz.width()) / 2.0, (height() - sz.height()) / 2.0);
+    m_offset = expectedTopLeft - center;
+
     update();
 }
 
