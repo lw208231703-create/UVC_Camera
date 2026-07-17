@@ -96,25 +96,19 @@ ControlPanel::ControlPanel(QWidget* parent)
         auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
 
         auto* row = new QHBoxLayout;
-        m_bitShiftSlider = new QSlider(Qt::Horizontal);
-        m_bitShiftSlider->setRange(0, 8);
-        m_bitShiftSlider->setValue(8);
-        m_bitShiftSlider->setTickPosition(QSlider::TicksBelow);
-        m_bitShiftSlider->setTickInterval(1);
-        m_bitShiftSlider->setStyleSheet(
-            "QSlider::groove:horizontal { background:#3C3C3C; height:6px; border-radius:3px; }"
-            "QSlider::handle:horizontal { background:#26C0A6; width:14px; margin:-5px 0; border-radius:7px; }"
-            "QSlider::sub-page:horizontal { background:#26C0A6; border-radius:3px; }");
+        m_bitShiftSelector = new BitShiftSelector;
+        m_bitShiftSelector->setRange(0, 8);
+        m_bitShiftSelector->setValue(8);
 
         m_bitShiftLabel = new QLabel("bits [15:8]");
         m_bitShiftLabel->setStyleSheet("color:#26C0A6; font-size:12px; min-width:80px;");
 
-        connect(m_bitShiftSlider, &QSlider::valueChanged, this, [this](int val) {
+        connect(m_bitShiftSelector, &BitShiftSelector::valueChanged, this, [this](int val) {
             m_bitShiftLabel->setText(QString("bits [%1:%2]").arg(val + 7).arg(val));
         });
 
         row->addWidget(new QLabel(TR("Shift:")));
-        row->addWidget(m_bitShiftSlider, 1);
+        row->addWidget(m_bitShiftSelector, 1);
         row->addWidget(m_bitShiftLabel);
         lay->addLayout(row);
 
@@ -214,12 +208,12 @@ ControlPanel::ControlPanel(QWidget* parent)
         grp->setEnabled(false);
         mainLayout->addWidget(grp);
     }
-
-    // ── Log area ──
+    // ── Log area (hidden from user, still collects logs internally) ──
     {
         m_logView = new QTextEdit;
         m_logView->setReadOnly(true);
-        m_logView->setMaximumHeight(150);
+        m_logView->setMaximumHeight(0);
+        m_logView->setVisible(false);
         m_logView->setStyleSheet(
             "QTextEdit {"
             "  background-color: #1A1A1A;"
@@ -231,11 +225,12 @@ ControlPanel::ControlPanel(QWidget* parent)
             "}"
         );
 
-        mainLayout->addWidget(makeGroup(TR("System Log"), new QVBoxLayout));
-        auto* grp = qobject_cast<QGroupBox*>(mainLayout->itemAt(mainLayout->count() - 1)->widget());
+        auto* grp = makeGroup(TR("System Log"), new QVBoxLayout);
+        grp->setVisible(false);
         if (grp && grp->layout()) {
             grp->layout()->addWidget(m_logView);
         }
+        mainLayout->addWidget(grp);
     }
 
     mainLayout->addStretch();

@@ -62,6 +62,9 @@
     </ClCompile>
     <ClCompile Include="ProcessingWorker.cpp" />
     <ClCompile Include="ui\CameraSettingsWidget.cpp" />
+    <ClCompile Include="ui\BitShiftSelector.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
     <ClCompile Include="hal\UvcControls.cpp" />
     <ClCompile Include="hal\FTI2cBridge.cpp" />
     <ClCompile Include="..\third_party\libusb\libusb\core.c" />
@@ -129,6 +132,9 @@
       <Filter>Processing</Filter>
     </QtMoc>
     <QtMoc Include="ui\CameraSettingsWidget.h" />
+    <QtMoc Include="ui\BitShiftSelector.h">
+      <Filter>UI</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <QtRcc Include="QtWidgetsApplication1.qrc">

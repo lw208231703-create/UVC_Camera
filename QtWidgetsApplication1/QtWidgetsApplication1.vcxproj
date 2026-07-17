@@ -71,6 +71,7 @@
     <QtMoc Include="hal\DeviceEnumerator.h" />
     <QtMoc Include="infra\LogManager.h" />
     <QtMoc Include="ui\CameraSettingsWidget.h" />
+    <QtMoc Include="ui\BitShiftSelector.h" />
     <QtMoc Include="ProcessingWorker.h" />
   </ItemGroup>
   <ItemGroup>
@@ -93,6 +94,7 @@
     <ClCompile Include="ui\ImageViewport.cpp" />
     <ClCompile Include="ui\ControlPanel.cpp" />
     <ClCompile Include="ui\CameraSettingsWidget.cpp" />
+    <ClCompile Include="ui\BitShiftSelector.cpp" />
     <ClCompile Include="hal\DeviceEnumerator.cpp" />
     <ClCompile Include="hal\UvcControls.cpp" />
     <ClCompile Include="hal\FTI2cBridge.cpp" />

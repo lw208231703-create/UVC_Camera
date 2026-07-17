@@ -185,7 +185,7 @@ void QtWidgetsApplication1::connectSignals() {
             this, &QtWidgetsApplication1::onSnapshot);
 
     // 16-bit shift — 同步到 worker 线程
-    connect(m_controlPanel->bitShiftSlider(), &QSlider::valueChanged,
+    connect(m_controlPanel->bitShiftSlider(), &BitShiftSelector::valueChanged,
             this, [this](int val) {
         m_bitShift = val;
         if (m_worker)

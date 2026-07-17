@@ -6,11 +6,12 @@
 #include <QPushButton>
 #include <QCheckBox>
 #include <QLabel>
-#include <QSlider>
 #include <QGroupBox>
 #include <QTextEdit>
 #include <QLineEdit>
 #include <QVBoxLayout>
+
+#include "ui/BitShiftSelector.h"
 
 class CameraSettingsWidget;
 
@@ -39,8 +40,8 @@ public:
     // Camera settings
     CameraSettingsWidget* cameraSettings() { return m_cameraSettings; }
 
-    // 16-bit shift slider
-    QSlider* bitShiftSlider() { return m_bitShiftSlider; }
+    // 16-bit shift selector
+    BitShiftSelector* bitShiftSlider() { return m_bitShiftSelector; }
 
     // I2C register debug
     QLineEdit*   i2cAddrEdit()   { return m_i2cAddrEdit; }
@@ -81,7 +82,7 @@ private:
     CameraSettingsWidget* m_cameraSettings;
 
     // Bit-depth shift
-    QSlider* m_bitShiftSlider;
+    BitShiftSelector* m_bitShiftSelector;
     QLabel*  m_bitShiftLabel;
 
     // I2C register debug
