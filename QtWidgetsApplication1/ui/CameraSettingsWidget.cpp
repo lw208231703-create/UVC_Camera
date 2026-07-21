@@ -226,14 +226,11 @@ void CameraSettingsWidget::setupUi() {
             bool ok;
             int val = m_roiXEdit->text().toInt(&ok);
             if (!ok) return;
-            // 读当前寄存器保留Y值
-            uint8_t cur[16] = {};
-            m_i2cBridge->readReg(0x54, cur, 16);
-            // X: 对齐到8 + 112偏置，写入低8字节
+            // X: 对齐到8 + 112偏置，写入寄存器0x54 (2字节, 小端)
             int alignedX = (val / 8) * 8;
-            uint64_t xVal = (uint64_t)(alignedX + 112);
-            for (int i = 0; i < 8; i++) cur[i] = (uint8_t)((xVal >> (i * 8)) & 0xFF);
-            m_i2cBridge->writeReg(0x54, cur, 16);
+            uint16_t regVal = (uint16_t)(alignedX + 112);
+            uint8_t data[2] = { (uint8_t)(regVal & 0xFF), (uint8_t)(regVal >> 8) };
+            m_i2cBridge->writeReg(0x54, data, 2);
             m_roiXEdit->setText(QString::number(alignedX));
         });
 
@@ -244,14 +241,11 @@ void CameraSettingsWidget::setupUi() {
             bool ok;
             int val = m_roiYEdit->text().toInt(&ok);
             if (!ok) return;
-            // 读当前寄存器保留X值
-            uint8_t cur[16] = {};
-            m_i2cBridge->readReg(0x54, cur, 16);
-            // Y: 对齐到4 + 4偏置，写入高8字节
+            // Y: 对齐到4 + 4偏置，写入寄存器0x55 (2字节, 小端)
             int alignedY = (val / 4) * 4;
-            uint64_t yVal = (uint64_t)(alignedY + 4);
-            for (int i = 0; i < 8; i++) cur[8 + i] = (uint8_t)((yVal >> (i * 8)) & 0xFF);
-            m_i2cBridge->writeReg(0x54, cur, 16);
+            uint16_t regVal = (uint16_t)(alignedY + 4);
+            uint8_t data[2] = { (uint8_t)(regVal & 0xFF), (uint8_t)(regVal >> 8) };
+            m_i2cBridge->writeReg(0x55, data, 2);
             m_roiYEdit->setText(QString::number(alignedY));
         });
 
@@ -298,17 +292,17 @@ void CameraSettingsWidget::refreshAll() {
                 if (m_pixelFormatCombo->itemData(i).toUInt() == fmtBuf[0]) {
                     m_pixelFormatCombo->setCurrentIndex(i); break;
         }
-        uint8_t roiBuf[16] = {};
-        if (m_i2cBridge->readReg(0x54, roiBuf, 16) == 16) {
-            uint64_t xReg = 0;
-            for (int i = 0; i < 8; i++) xReg |= (uint64_t)roiBuf[i] << (i * 8);
-            int roiX = (int)xReg - 112;
+        uint8_t roiXBuf[2] = {};
+        if (m_i2cBridge->readReg(0x54, roiXBuf, 2) == 2) {
+            uint16_t regVal = (roiXBuf[1] << 8) | roiXBuf[0];
+            int roiX = (int)regVal - 112;
             if (roiX < 0) roiX = 0;
             m_roiXEdit->setText(QString::number(roiX));
-
-            uint64_t yReg = 0;
-            for (int i = 0; i < 8; i++) yReg |= (uint64_t)roiBuf[8 + i] << (i * 8);
-            int roiY = (int)yReg - 4;
+        }
+        uint8_t roiYBuf[2] = {};
+        if (m_i2cBridge->readReg(0x55, roiYBuf, 2) == 2) {
+            uint16_t regVal = (roiYBuf[1] << 8) | roiYBuf[0];
+            int roiY = (int)regVal - 4;
             if (roiY < 0) roiY = 0;
             m_roiYEdit->setText(QString::number(roiY));
         }
@@ -341,26 +335,32 @@ void CameraSettingsWidget::refreshAll() {
     m_updating = false;
 }
 
-// ── Read HMAX/VMAX from register 0x51 via I2C ──
+// ── Read HMAX from 0x56 / VMAX from 0x57 via I2C (2 bytes each, little-endian) ──
 void CameraSettingsWidget::readTimingRegisters() {
     if (!m_i2cBridge || !m_i2cBridge->isValid()) {
         LOG_WARNING("I2C bridge not available for reading timing registers");
         return;
     }
 
-    // Register 0x51: 5 bytes, HMAX=[15:0], VMAX=[39:16]
-    uint8_t buf[5] = {};
-    int ret = m_i2cBridge->readReg(0x51, buf, 5);
-    if (ret < 5) {
-        LOG_ERROR(QString("Failed to read register 0x51 (ret=%1)").arg(ret));
+    // HMAX: register 0x56, 2 bytes, little-endian
+    uint8_t hmaxBuf[2] = {};
+    int ret = m_i2cBridge->readReg(0x56, hmaxBuf, 2);
+    if (ret < 2) {
+        LOG_ERROR(QString("Failed to read HMAX register 0x56 (ret=%1)").arg(ret));
         m_timingValid = false;
         return;
     }
+    m_hmax = (uint16_t)(hmaxBuf[0] | (hmaxBuf[1] << 8));
 
-    // HMAX = buf[1]<<8 | buf[0]  (little-endian, bytes [0:1])
-    m_hmax = (uint16_t)(buf[0] | (buf[1] << 8));
-    // VMAX = buf[4]<<16 | buf[3]<<8 | buf[2]  (little-endian, bytes [2:4])
-    m_vmax = (uint32_t)(buf[2] | (buf[3] << 8) | (buf[4] << 16));
+    // VMAX: register 0x57, 2 bytes, little-endian
+    uint8_t vmaxBuf[2] = {};
+    ret = m_i2cBridge->readReg(0x57, vmaxBuf, 2);
+    if (ret < 2) {
+        LOG_ERROR(QString("Failed to read VMAX register 0x57 (ret=%1)").arg(ret));
+        m_timingValid = false;
+        return;
+    }
+    m_vmax = (uint32_t)(vmaxBuf[0] | (vmaxBuf[1] << 8));
 
     LOG_INFO(QString("Timing: HMAX=%1, VMAX=%2").arg(m_hmax).arg(m_vmax));
     m_timingValid = true;
