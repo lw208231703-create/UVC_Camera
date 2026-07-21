@@ -226,11 +226,11 @@ void CameraSettingsWidget::setupUi() {
             bool ok;
             int val = m_roiXEdit->text().toInt(&ok);
             if (!ok) return;
-            // X: 对齐到8 + 112偏置，写入寄存器0x54 (2字节, 小端)
+            // X: 对齐到8 + 112偏置，写入寄存器0x47 (2字节, 小端)
             int alignedX = (val / 8) * 8;
             uint16_t regVal = (uint16_t)(alignedX + 112);
             uint8_t data[2] = { (uint8_t)(regVal & 0xFF), (uint8_t)(regVal >> 8) };
-            m_i2cBridge->writeReg(0x54, data, 2);
+            m_i2cBridge->writeReg(0x47, data, 2);
             m_roiXEdit->setText(QString::number(alignedX));
         });
 
@@ -241,11 +241,11 @@ void CameraSettingsWidget::setupUi() {
             bool ok;
             int val = m_roiYEdit->text().toInt(&ok);
             if (!ok) return;
-            // Y: 对齐到4 + 4偏置，写入寄存器0x55 (2字节, 小端)
+            // Y: 对齐到4 + 4偏置，写入寄存器0x48 (2字节, 小端)
             int alignedY = (val / 4) * 4;
             uint16_t regVal = (uint16_t)(alignedY + 4);
             uint8_t data[2] = { (uint8_t)(regVal & 0xFF), (uint8_t)(regVal >> 8) };
-            m_i2cBridge->writeReg(0x55, data, 2);
+            m_i2cBridge->writeReg(0x48, data, 2);
             m_roiYEdit->setText(QString::number(alignedY));
         });
 
@@ -293,14 +293,14 @@ void CameraSettingsWidget::refreshAll() {
                     m_pixelFormatCombo->setCurrentIndex(i); break;
         }
         uint8_t roiXBuf[2] = {};
-        if (m_i2cBridge->readReg(0x54, roiXBuf, 2) == 2) {
+        if (m_i2cBridge->readReg(0x47, roiXBuf, 2) == 2) {
             uint16_t regVal = (roiXBuf[1] << 8) | roiXBuf[0];
             int roiX = (int)regVal - 112;
             if (roiX < 0) roiX = 0;
             m_roiXEdit->setText(QString::number(roiX));
         }
         uint8_t roiYBuf[2] = {};
-        if (m_i2cBridge->readReg(0x55, roiYBuf, 2) == 2) {
+        if (m_i2cBridge->readReg(0x48, roiYBuf, 2) == 2) {
             uint16_t regVal = (roiYBuf[1] << 8) | roiYBuf[0];
             int roiY = (int)regVal - 4;
             if (roiY < 0) roiY = 0;
