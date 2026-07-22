@@ -122,9 +122,10 @@ ControlPanel::ControlPanel(QWidget* parent)
         mainLayout->addWidget(m_cameraSettings);
     }
 
-    // ── I2C 寄存器调试 ──
+    // ── I2C 寄存器调试 (隐藏) ──
     {
         m_i2cGroup = makeGroup(TR("I2C 寄存器调试 (FT602直通)"), new QVBoxLayout);
+        m_i2cGroup->setVisible(false);
         auto* grp = m_i2cGroup;
         auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
 
@@ -208,10 +209,11 @@ ControlPanel::ControlPanel(QWidget* parent)
         grp->setEnabled(false);
         mainLayout->addWidget(grp);
     }
-    // ── Log area (hidden from user, still collects logs internally) ──
+    // ── Log area (隐藏) ──
     {
         m_logView = new QTextEdit;
         m_logView->setReadOnly(true);
+        m_logView->setMinimumHeight(0);
         m_logView->setMaximumHeight(0);
         m_logView->setVisible(false);
         m_logView->setStyleSheet(

@@ -146,6 +146,9 @@ void CameraSettingsWidget::setupUi() {
             uint32_t val = (uint32_t)m_exposureEdit->text().toUInt(&ok);
             if (!ok) return;
 
+            // 每次设置曝光前重新读取 HMAX/VMAX
+            readTimingRegisters();
+
             if (m_timingValid) {
                 double fclk = m_pixelClockMHz * 1e6;
                 double tLineUs = (double)m_hmax / fclk * 1e6;

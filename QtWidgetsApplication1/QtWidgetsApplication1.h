@@ -90,6 +90,7 @@ private:
     qint64          m_lastStatsSampleTime  = 0; // 上次采样时间 (ms)
     uint64_t        m_lastStatsSampleFrames = 0;
     uint64_t        m_lastStatsSampleBytes  = 0;
+    int             m_statsTickCounter  = 0;
 
     // Snapshot counter
     int m_snapshotCounter = 0;

@@ -59,9 +59,9 @@ QtWidgetsApplication1::QtWidgetsApplication1(QWidget* parent)
             TR("Failed to initialize libuvc.\nCheck USB driver installation."));
     }
 
-    // Stats timer (4 Hz)
+    // Stats timer (1 s, 每 5 次更新一次显示 = 5s 间隔)
     m_statsTimer = new QTimer(this);
-    m_statsTimer->setInterval(250);
+    m_statsTimer->setInterval(1000);
     connect(m_statsTimer, &QTimer::timeout, this, &QtWidgetsApplication1::updateStats);
     m_statsTimer->start();
     m_statsElapsed.start();
@@ -471,8 +471,10 @@ void QtWidgetsApplication1::onApplyStream() {
         m_camera->stopStreaming();
         m_streaming = false;
         m_controlPanel->setStreaming(false);
-        m_viewport->clearImage();        // 清除残留画面，防止重启时闪现旧帧
+        m_viewport->clearImage();
         m_viewport->setOverlayText("");
+        m_fpsLabel->setText(QString("FPS: --"));
+        m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
         LOG_INFO("Streaming stopped");
         return;
     }
@@ -512,6 +514,9 @@ void QtWidgetsApplication1::onApplyStream() {
     m_lastStatsSampleTime  = 0;
     m_lastStatsSampleFrames = 0;
     m_lastStatsSampleBytes  = 0;
+    m_statsTickCounter = 0;
+    m_fpsLabel->setText(QString("FPS: --"));
+    m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
 
     // 重置 worker 诊断计数器，确保新一轮启流的前3帧日志正常输出
     if (m_worker) m_worker->resetDiagCounters();
@@ -581,6 +586,8 @@ void QtWidgetsApplication1::onDeviceLost() {
     m_controlPanel->setDeviceOpen(false);
     m_controlPanel->setStreaming(false);
     m_temperatureLabel->setText(TR("Detector Temp: --"));
+    m_fpsLabel->setText(QString("FPS: --"));
+    m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
 
     QMessageBox::critical(this, TR("Device Lost"),
         TR("The camera device was disconnected.\nAll controls have been released."));
@@ -600,27 +607,33 @@ void QtWidgetsApplication1::updateStats() {
     }
 
     qint64 now = QDateTime::currentDateTime().currentMSecsSinceEpoch();
+
     if (m_lastStatsSampleTime == 0) {
-        // 首次采样：记录基线
+        // 首次：记录基线，下次更新立即显示
         m_lastStatsSampleTime  = now;
         m_lastStatsSampleFrames = m_statsFrameCount;
         m_lastStatsSampleBytes  = m_statsByteCount;
-        m_fpsLabel->setText(QString("FPS: --"));
-        m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
+        m_statsTickCounter = 0;
         return;
     }
 
+    m_statsTickCounter++;
+
+    // 第1秒立即出第一组数据，之后每5秒更新
+    if (m_statsTickCounter != 1 && m_statsTickCounter % 5 != 0)
+        return;
+
     double elapsed = (now - m_lastStatsSampleTime) / 1000.0;
-    if (elapsed < 0.5) return; // 间隔不够，继续累积
+    if (elapsed < 0.5) return;
 
     uint64_t frames = m_statsFrameCount - m_lastStatsSampleFrames;
     uint64_t bytes  = m_statsByteCount - m_lastStatsSampleBytes;
 
-    double fps  = frames / elapsed;
-    double mbps = bytes / elapsed / (1024.0 * 1024.0);
+    int fps  = static_cast<int>(frames / elapsed + 0.5);
+    int mbps = static_cast<int>(bytes / elapsed / (1024.0 * 1024.0) + 0.5);
 
-    m_fpsLabel->setText(QString("FPS: %1").arg(fps, 0, 'f', 1));
-    m_bandwidthLabel->setText(QString("Rx: %1 MB/s").arg(mbps, 0, 'f', 1));
+    m_fpsLabel->setText(QString("FPS: %1").arg(fps));
+    m_bandwidthLabel->setText(QString("Rx: %1 MB/s").arg(mbps));
 
     // 更新采样点
     m_lastStatsSampleTime  = now;
