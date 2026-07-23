@@ -78,7 +78,8 @@ private:
     bool m_streaming = false;
 
     ProcessedFrame m_lastFrame;
-    int m_bitShift = 8;  // 16-bit display: bit shift (8=MSB, 0=LSB)
+    int m_bitShift = 8;          // 16-bit display: bit shift (8=MSB, 0=LSB)
+    bool m_denoiseEnabled = true; // 降噪开关
 
     // Stats
     QTimer*         m_statsTimer;

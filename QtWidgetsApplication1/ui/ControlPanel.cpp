@@ -84,8 +84,13 @@ ControlPanel::ControlPanel(QWidget* parent)
         m_snapshotBtn->setMinimumHeight(40);
         m_snapshotBtn->setEnabled(false);
 
+        m_denoiseChk = new QCheckBox(TR("降噪"));
+        m_denoiseChk->setChecked(true);
+        m_denoiseChk->setStyleSheet("color:#CCCCCC; font-size:12px;");
+
         auto* capLayout = new QVBoxLayout;
         capLayout->addWidget(m_snapshotBtn);
+        capLayout->addWidget(m_denoiseChk);
 
         mainLayout->addWidget(makeGroup(TR("Capture"), capLayout));
     }
@@ -122,10 +127,12 @@ ControlPanel::ControlPanel(QWidget* parent)
         mainLayout->addWidget(m_cameraSettings);
     }
 
-    // ── I2C 寄存器调试 (隐藏) ──
+    // ── I2C 寄存器调试 ──
     {
         m_i2cGroup = makeGroup(TR("I2C 寄存器调试 (FT602直通)"), new QVBoxLayout);
+#if !UVC_DEBUG_PANELS
         m_i2cGroup->setVisible(false);
+#endif
         auto* grp = m_i2cGroup;
         auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
 
@@ -209,13 +216,18 @@ ControlPanel::ControlPanel(QWidget* parent)
         grp->setEnabled(false);
         mainLayout->addWidget(grp);
     }
-    // ── Log area (隐藏) ──
+    // ── Log area ──
     {
         m_logView = new QTextEdit;
         m_logView->setReadOnly(true);
+#if UVC_DEBUG_PANELS
+        m_logView->setMinimumHeight(120);
+        m_logView->setMaximumHeight(200);
+#else
         m_logView->setMinimumHeight(0);
         m_logView->setMaximumHeight(0);
         m_logView->setVisible(false);
+#endif
         m_logView->setStyleSheet(
             "QTextEdit {"
             "  background-color: #1A1A1A;"
@@ -228,7 +240,9 @@ ControlPanel::ControlPanel(QWidget* parent)
         );
 
         auto* grp = makeGroup(TR("System Log"), new QVBoxLayout);
+#if !UVC_DEBUG_PANELS
         grp->setVisible(false);
+#endif
         if (grp && grp->layout()) {
             grp->layout()->addWidget(m_logView);
         }

@@ -143,21 +143,25 @@ void CameraSettingsWidget::setupUi() {
         auto applyExposure = [this]() {
             if (m_updating || !m_ctrl) return;
             bool ok;
+			//输入曝光时间
             uint32_t val = (uint32_t)m_exposureEdit->text().toUInt(&ok);
             if (!ok) return;
 
-            // 每次设置曝光前重新读取 HMAX/VMAX
+            // 读 HMAX/VMAX
             readTimingRegisters();
 
             if (m_timingValid) {
-                double fclk = m_pixelClockMHz * 1e6;
-                double tLineUs = (double)m_hmax / fclk * 1e6;
-                int rawLines = (int)std::ceil(val / tLineUs);
-                int lines = qBound(1, rawLines, (int)m_vmax);
-                double actualUs = lines * tLineUs;
+                double tLineUs = (double)m_hmax / m_pixelClockMHz;                // 一行耗时 (μs) = HMAX / 时钟(MHz)
+                int rawLines = (int)std::ceil(val / tLineUs);                     // 输入μs ÷ 一行耗时 → 行数（向上取整）
+                int maxLines = (int)m_vmax - 52;                                   // 上限: VMAX-52
+                if (maxLines < 2) maxLines = 2;
+                int lines = qBound(2, rawLines, maxLines);                        // 钳位到 [2, maxLines]
+                double actualUs = (double)lines * tLineUs;                        // 实际曝光 (μs) = 行数 × 一行耗时
                 if (lines != rawLines) {
+                    m_updating = true;
                     m_exposureEdit->setText(QString::number((int)actualUs));
-                }
+                    m_updating = false;
+                }          
                 QString detail = QString(
                     "HMAX=%1  VMAX=%2\n"
                     "Pixel Clock=%3 MHz\n"
@@ -170,10 +174,15 @@ void CameraSettingsWidget::setupUi() {
                     .arg(val).arg(rawLines)
                     .arg(actualUs, 0, 'f', 0).arg(lines);
                 QMessageBox::information(this, "曝光换算详情", detail);
-                m_ctrl->setExposureAbs((uint32_t)lines);
+                uint32_t expVal = (uint32_t)lines;
+                uint8_t highBuf[2] = { (uint8_t)(expVal >> 16), (uint8_t)(expVal >> 24) };
+                uint8_t lowBuf[2]  = { (uint8_t)(expVal & 0xFF), (uint8_t)((expVal >> 8) & 0xFF) };
+                m_i2cBridge->writeReg(0x42, highBuf, 2);
+                m_i2cBridge->writeReg(0x43, lowBuf, 2);
             } else {
                 m_ctrl->setExposureAbs(val);
             }
+
         };
 
         // editingFinished fires on Enter and when focus leaves the field
@@ -207,6 +216,7 @@ void CameraSettingsWidget::setupUi() {
             bool ok;
             int val = m_fpsEdit->text().toInt(&ok);
             if (!ok) return;
+            if (val < 10) { val = 10; m_fpsEdit->setText(QString::number(val)); }
             uint8_t data[2] = { (uint8_t)(val & 0xFF), (uint8_t)(val >> 8) };
             m_i2cBridge->writeReg(0x10, data, 2);
         });
@@ -220,6 +230,11 @@ void CameraSettingsWidget::setupUi() {
             uint8_t data[16] = {};
             data[0] = (uint8_t)m_pixelFormatCombo->itemData(idx).toUInt();
             m_i2cBridge->writeReg(0x50, data, 16);
+            // FPGA bug workaround: 切换像素格式后默认写曝光 2 行
+            uint8_t expHigh[2] = { 0x00, 0x00 };
+            uint8_t expLow[2]  = { 0x02, 0x00 };
+            m_i2cBridge->writeReg(0x42, expHigh, 2);
+            m_i2cBridge->writeReg(0x43, expLow, 2);
         });
 
         lay->addWidget(makeInputRow(TR("开窗X"), m_roiXEdit, "0"));
@@ -316,14 +331,21 @@ void CameraSettingsWidget::refreshAll() {
     // Gain
     if (m_ctrl->getGain(u16)) { m_gainSlider->setValue(u16); m_gainLabel->setText(QString::number(u16)); }
 
-    // Exposure (camera returns line count, convert to μs for display)
-    if (m_ctrl->getExposureAbs(u32)) {
-        if (m_timingValid) {
-            double fclk = m_pixelClockMHz * 1e6;
-            double tLineUs = (double)m_hmax / fclk * 1e6;
-            m_exposureEdit->setText(QString::number((int)(u32 * tLineUs)));
-        } else {
-            m_exposureEdit->setText(QString::number(u32));
+    // Exposure: 从 I2C 0x42+0x43 读回行数, 转换为 μs 显示
+    if (m_i2cBridge && m_i2cBridge->isValid()) {
+        uint8_t expHBuf[2] = {};
+        if (m_i2cBridge->readReg(0x42, expHBuf, 2) == 2) {
+            uint8_t expLBuf[2] = {};
+            if (m_i2cBridge->readReg(0x43, expLBuf, 2) == 2) {
+                u32 = ((uint32_t)(expHBuf[0] | (expHBuf[1] << 8)) << 16)
+                    | (uint32_t)(expLBuf[0] | (expLBuf[1] << 8));
+                if (m_timingValid) {
+                    double tLineUs = (double)m_hmax / m_pixelClockMHz;
+                    m_exposureEdit->setText(QString::number((int)(u32 * tLineUs)));
+                } else {
+                    m_exposureEdit->setText(QString::number(u32));
+                }
+            }
         }
     }
     if (m_i2cBridge && m_i2cBridge->isValid()) {
@@ -338,7 +360,7 @@ void CameraSettingsWidget::refreshAll() {
     m_updating = false;
 }
 
-// ── Read HMAX from 0x56 / VMAX from 0x57 via I2C (2 bytes each, little-endian) ──
+// ── Read HMAX from 0x56 / VMAX from 0x45+0x46 via I2C (2 bytes each, little-endian) ──
 void CameraSettingsWidget::readTimingRegisters() {
     if (!m_i2cBridge || !m_i2cBridge->isValid()) {
         LOG_WARNING("I2C bridge not available for reading timing registers");
@@ -355,15 +377,23 @@ void CameraSettingsWidget::readTimingRegisters() {
     }
     m_hmax = (uint16_t)(hmaxBuf[0] | (hmaxBuf[1] << 8));
 
-    // VMAX: register 0x57, 2 bytes, little-endian
-    uint8_t vmaxBuf[2] = {};
-    ret = m_i2cBridge->readReg(0x57, vmaxBuf, 2);
+    // VMAX: 0x45[7:0] = vmax[23:16], 0x46 = vmax[15:0] (小端)
+    uint8_t vmaxHBuf[2] = {};
+    ret = m_i2cBridge->readReg(0x45, vmaxHBuf, 2);
     if (ret < 2) {
-        LOG_ERROR(QString("Failed to read VMAX register 0x57 (ret=%1)").arg(ret));
+        LOG_ERROR(QString("Failed to read VMAX high register 0x45 (ret=%1)").arg(ret));
         m_timingValid = false;
         return;
     }
-    m_vmax = (uint32_t)(vmaxBuf[0] | (vmaxBuf[1] << 8));
+    uint8_t vmaxLBuf[2] = {};
+    ret = m_i2cBridge->readReg(0x46, vmaxLBuf, 2);
+    if (ret < 2) {
+        LOG_ERROR(QString("Failed to read VMAX low register 0x46 (ret=%1)").arg(ret));
+        m_timingValid = false;
+        return;
+    }
+    m_vmax = (((uint32_t)(vmaxHBuf[0] | (vmaxHBuf[1] << 8)) & 0xFF) << 16)
+           | (uint32_t)(vmaxLBuf[0] | (vmaxLBuf[1] << 8));
 
     LOG_INFO(QString("Timing: HMAX=%1, VMAX=%2").arg(m_hmax).arg(m_vmax));
     m_timingValid = true;

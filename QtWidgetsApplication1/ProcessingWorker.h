@@ -26,6 +26,7 @@ public:
     void setProtocol(IProtocolHandler* protocol);
     void setBitShift(int shift);
     int bitShift() const;
+    void setDenoiseEnabled(bool enabled);
 
     uint64_t processedCount() const;
     uint64_t droppedCount() const;
@@ -46,6 +47,7 @@ private:
 
     IProtocolHandler* m_protocol = nullptr;
     std::atomic<int> m_bitShift{8};
+    std::atomic<bool> m_denoiseEnabled{true};
     std::atomic<uint64_t> m_processedCount{0};
     std::atomic<uint64_t> m_droppedCount{0};
     std::atomic<bool> m_busy{false};

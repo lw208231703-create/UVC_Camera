@@ -20,6 +20,10 @@ int ProcessingWorker::bitShift() const {
     return m_bitShift.load(std::memory_order_relaxed);
 }
 
+void ProcessingWorker::setDenoiseEnabled(bool enabled) {
+    m_denoiseEnabled.store(enabled, std::memory_order_relaxed);
+}
+
 uint64_t ProcessingWorker::processedCount() const {
     return m_processedCount.load(std::memory_order_relaxed);
 }
@@ -93,6 +97,7 @@ QImage ProcessingWorker::frameToQImage(const ProcessedFrame& frame) {
 
     int w = static_cast<int>(frame.width);
     int h = static_cast<int>(frame.height);
+    bool denoise = m_denoiseEnabled.load(std::memory_order_relaxed);
 
     if (frame.cv_type == CV_8UC3) {
         size_t expected = static_cast<size_t>(w) * h * 3;
@@ -101,12 +106,10 @@ QImage ProcessingWorker::frameToQImage(const ProcessedFrame& frame) {
                 .arg(expected).arg(frame.data.size()));
             return {};
         }
-        // BGR (OpenCV default) → median filter → RGB for QImage
         cv::Mat bgr(h, w, CV_8UC3, const_cast<uint8_t*>(frame.data.data()));
-        cv::Mat filtered;
-        cv::medianBlur(bgr, filtered, 3);
+        if (denoise) cv::medianBlur(bgr, bgr, 3);
         cv::Mat rgb;
-        cv::cvtColor(filtered, rgb, cv::COLOR_BGR2RGB);
+        cv::cvtColor(bgr, rgb, cv::COLOR_BGR2RGB);
         return QImage(rgb.data, rgb.cols, rgb.rows, rgb.step,
                       QImage::Format_RGB888).copy();
 
@@ -117,7 +120,6 @@ QImage ProcessingWorker::frameToQImage(const ProcessedFrame& frame) {
                 .arg(expected).arg(frame.data.size()));
             return {};
         }
-        // 16-bit → extract 8-bit slice per slider position
         auto* src16 = reinterpret_cast<const uint16_t*>(frame.data.data());
         size_t n = static_cast<size_t>(w) * h;
         int shift = m_bitShift.load(std::memory_order_relaxed);
@@ -125,13 +127,12 @@ QImage ProcessingWorker::frameToQImage(const ProcessedFrame& frame) {
         for (size_t i = 0; i < n; i++)
             buf8[i] = static_cast<uint8_t>((src16[i] >> shift) & 0xFF);
         cv::Mat gray8(h, w, CV_8UC1, buf8.data());
-        cv::medianBlur(gray8, gray8, 3);
+        if (denoise) cv::medianBlur(gray8, gray8, 3);
         return QImage(buf8.data(), w, h, QImage::Format_Grayscale8).copy();
 
     } else {
-        // CV_8UC1 or unknown → grayscale passthrough
         cv::Mat gray8(h, w, CV_8UC1, const_cast<uint8_t*>(frame.data.data()));
-        cv::medianBlur(gray8, gray8, 3);
+        if (denoise) cv::medianBlur(gray8, gray8, 3);
         return QImage(frame.data.data(), w, h, QImage::Format_Grayscale8).copy();
     }
 }

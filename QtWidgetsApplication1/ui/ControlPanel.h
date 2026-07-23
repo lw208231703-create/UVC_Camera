@@ -1,5 +1,8 @@
 #pragma once
 
+// I2C调试 & 日志面板开关: 设为 1 开启, 0 隐藏
+#define UVC_DEBUG_PANELS 0
+
 #include <QWidget>
 #include <QScrollArea>
 #include <QComboBox>
@@ -33,6 +36,7 @@ public:
 
     // Capture group
     QPushButton* snapshotBtn() { return m_snapshotBtn; }
+    QCheckBox*   denoiseChk()  { return m_denoiseChk; }
 
     // Log area
     QTextEdit* logView()       { return m_logView; }
@@ -74,6 +78,7 @@ private:
 
     // Capture
     QPushButton* m_snapshotBtn;
+    QCheckBox*   m_denoiseChk;
 
     // Log
     QTextEdit*  m_logView;

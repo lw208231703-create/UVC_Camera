@@ -184,6 +184,14 @@ void QtWidgetsApplication1::connectSignals() {
     connect(m_controlPanel->snapshotBtn(), &QPushButton::clicked,
             this, &QtWidgetsApplication1::onSnapshot);
 
+    // 降噪开关 — 同步到 worker 线程
+    connect(m_controlPanel->denoiseChk(), &QCheckBox::toggled,
+            this, [this](bool checked) {
+        m_denoiseEnabled = checked;
+        if (m_worker)
+            m_worker->setDenoiseEnabled(checked);
+    });
+
     // 16-bit shift — 同步到 worker 线程
     connect(m_controlPanel->bitShiftSlider(), &BitShiftSelector::valueChanged,
             this, [this](int val) {
@@ -565,7 +573,8 @@ void QtWidgetsApplication1::onSnapshot() {
 
     cv::Mat img(h, w, m_lastFrame.cv_type,
                 const_cast<uint8_t*>(m_lastFrame.data.data()));
-    cv::medianBlur(img, img, 3);
+    if (m_denoiseEnabled)
+        cv::medianBlur(img, img, 3);
     cv::imwrite(filename.toStdString(), img);
 
     const char* desc = (m_lastFrame.cv_type == CV_16UC1) ? "16-bit TIFF"
