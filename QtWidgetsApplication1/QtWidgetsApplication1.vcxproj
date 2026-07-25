@@ -177,6 +177,9 @@
     <Exec Condition="!Exists('$(SolutionDir)..\third_party\libusb\libusb\version_describe.h')" Command="echo /* Auto-generated */ &gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #ifndef LIBUSB_DESCRIBE &gt;&gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #define LIBUSB_DESCRIBE &quot;custom-build&quot; &gt;&gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #endif &gt;&gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot;" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="CopyOpenCVDll" AfterTargets="Build">
+    <Copy SourceFiles="$(SolutionDir)..\third_party\opencv-core\opencv-build\install\x64\vc17\bin\opencv_world4140.dll" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">
     <Import Project="$(QtMsBuild)\qt.targets" />
   </ImportGroup>
