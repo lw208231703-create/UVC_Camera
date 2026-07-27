@@ -540,8 +540,8 @@ void QtWidgetsApplication1::onFrameProcessed(QImage img, ProcessedFrame parsed) 
     if (!m_streaming) return;
     if (img.isNull()) return;
 
-    int64_t now = QDateTime::currentMSecsSinceEpoch() * 1000;
-    int64_t queue2Us = now - parsed.pipeline_ts_us;
+    int64_t tsNow = QDateTime::currentMSecsSinceEpoch() * 1000;
+    int64_t queue2Us = tsNow - parsed.pipeline_ts_us;
 
     if (m_statsFrameCount % 30 == 0 || queue2Us > 50000)
         LOG_INFO(QString("[PipeDiag] MAIN: frame=%1 display_frame=%2 queue2=%3us")
