@@ -40,6 +40,7 @@ struct ProcessedFrame {
     uint32_t height = 0;
     int cv_type = 0;           // CV_8UC1, CV_16UC1, CV_8UC3, etc.
     uint64_t timestamp_us = 0;
+    int64_t  pipeline_ts_us = 0; // 帧创建时间戳，追踪完整管线延迟
     bool valid = false;
 };
 

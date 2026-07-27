@@ -540,9 +540,25 @@ void QtWidgetsApplication1::onFrameProcessed(QImage img, ProcessedFrame parsed) 
     if (!m_streaming) return;
     if (img.isNull()) return;
 
-    if (m_statsFrameCount % 30 == 0)
-        LOG_INFO(QString("[PipeDiag] MAIN: frame=%1 display_frame=%2")
-            .arg(m_statsFrameCount).arg(m_displayFrameCount));
+    int64_t now = QDateTime::currentMSecsSinceEpoch() * 1000;
+    int64_t queue2Us = now - parsed.pipeline_ts_us;
+
+    if (m_statsFrameCount % 30 == 0 || queue2Us > 50000)
+        LOG_INFO(QString("[PipeDiag] MAIN: frame=%1 display_frame=%2 queue2=%3us")
+            .arg(m_statsFrameCount).arg(m_displayFrameCount).arg(queue2Us));
+
+    QElapsedTimer dispTimer;
+    dispTimer.start();
+
+    // 保存最后帧用于截图
+    m_lastFrame = std::move(parsed);
+
+    // 显示
+    m_viewport->setImage(img);
+
+    int64_t dispUs = dispTimer.nsecsElapsed() / 1000;
+    if (dispUs > 5000)
+        LOG_INFO(QString("[PipeDiag] MAIN: setImage=%1us").arg(dispUs));
 
     // 保存最后帧用于截图
     m_lastFrame = std::move(parsed);

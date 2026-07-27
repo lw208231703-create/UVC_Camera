@@ -83,6 +83,7 @@ void ProcessingWorker::processFrame(const Frame& frame) {
     tConvert = timer.nsecsElapsed() / 1000;
     if (!img.isNull()) {
         m_processedCount.fetch_add(1, std::memory_order_relaxed);
+        parsed.pipeline_ts_us = frame.pipeline_ts_us;
         emit frameDisplayReady(img, parsed);
     }
 
@@ -122,16 +123,23 @@ QImage ProcessingWorker::frameToQImage(const ProcessedFrame& frame) {
                 .arg(expected).arg(frame.data.size()));
             return {};
         }
+        QElapsedTimer t;
+        t.start();
         auto* src16 = reinterpret_cast<const uint16_t*>(frame.data.data());
         size_t n = static_cast<size_t>(w) * h;
         int shift = m_bitShift.load(std::memory_order_relaxed);
-        m_gray8Buf.resize(n);
-        uint8_t* dst8 = m_gray8Buf.data();
+        std::vector<uint8_t> buf8(n);
         for (size_t i = 0; i < n; i++)
-            dst8[i] = static_cast<uint8_t>((src16[i] >> shift) & 0xFF);
-        cv::Mat gray8(h, w, CV_8UC1, dst8);
+            buf8[i] = static_cast<uint8_t>((src16[i] >> shift) & 0xFF);
+        int64_t tShift = t.nsecsElapsed() / 1000;
+        cv::Mat gray8(h, w, CV_8UC1, buf8.data());
         if (denoise) cv::medianBlur(gray8, gray8, 3);
-        return QImage(dst8, w, h, QImage::Format_Grayscale8).copy();
+        int64_t tBlur = t.nsecsElapsed() / 1000;
+        QImage result = QImage(buf8.data(), w, h, QImage::Format_Grayscale8).copy();
+        int64_t tCopy = t.nsecsElapsed() / 1000;
+        LOG_INFO(QString("[PipeDiag] convert_detail: shift=%1us blur=%2us copy=%3us")
+            .arg(tShift).arg(tBlur - tShift).arg(tCopy - tBlur));
+        return result;
 
     } else {
         cv::Mat gray8(h, w, CV_8UC1, const_cast<uint8_t*>(frame.data.data()));
