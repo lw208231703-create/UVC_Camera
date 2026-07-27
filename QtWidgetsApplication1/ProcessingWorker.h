@@ -52,4 +52,5 @@ private:
     std::atomic<uint64_t> m_droppedCount{0};
     std::atomic<bool> m_busy{false};
     std::atomic<uint32_t> m_diagCount{0};
+    std::vector<uint8_t> m_gray8Buf;     // 复用的灰度转换 buffer
 };
