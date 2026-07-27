@@ -540,6 +540,10 @@ void QtWidgetsApplication1::onFrameProcessed(QImage img, ProcessedFrame parsed) 
     if (!m_streaming) return;
     if (img.isNull()) return;
 
+    if (m_statsFrameCount % 30 == 0)
+        LOG_INFO(QString("[PipeDiag] MAIN: frame=%1 display_frame=%2")
+            .arg(m_statsFrameCount).arg(m_displayFrameCount));
+
     // 保存最后帧用于截图
     m_lastFrame = std::move(parsed);
 

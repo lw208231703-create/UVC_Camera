@@ -29,6 +29,7 @@ struct Frame {
     uint32_t height = 0;
     uint32_t frame_index = 0;
     uint64_t timestamp_us = 0;
+    int64_t  pipeline_ts_us = 0;   // 帧创建时间戳(us)，追踪管线延迟
     std::string format;        // "Y800", "Y16", "YUYV", "MJPEG", "custom_12bit", "custom_14bit"
     bool valid = false;
 };

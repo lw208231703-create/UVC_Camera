@@ -1,6 +1,7 @@
 #include "LibuvcCameraDevice.h"
 #include "DeviceEnumerator.h"
 #include "infra/LogManager.h"
+#include <QDateTime>
 #include <libuvc/libuvc.h>
 
 // 阻止 winsock.h 的 timeval 重定义冲突 (libusb.h → winsock.h vs sys/time.h)
@@ -384,6 +385,7 @@ void LibuvcCameraDevice::frameCallback(struct uvc_frame* uvcFrame, void* userPtr
 
     frame.data.assign(static_cast<uint8_t*>(uvcFrame->data),
                       static_cast<uint8_t*>(uvcFrame->data) + uvcFrame->data_bytes);
+    frame.pipeline_ts_us = QDateTime::currentMSecsSinceEpoch() * 1000;
 
     uint32_t cbLogIndex = self->m_callbackLogCount.fetch_add(1, std::memory_order_relaxed);
     if (cbLogIndex < 3) {

@@ -1,6 +1,8 @@
 #include "ProcessingWorker.h"
 #include "core/IProtocolHandler.h"
 #include "infra/LogManager.h"
+#include <QDateTime>
+#include <QElapsedTimer>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
 
@@ -37,6 +39,9 @@ void ProcessingWorker::resetDiagCounters() {
 }
 
 void ProcessingWorker::processFrame(const Frame& frame) {
+    int64_t now = QDateTime::currentMSecsSinceEpoch() * 1000;
+    int64_t queueUs = now - frame.pipeline_ts_us;
+
     // ── 丢帧保护：如果上一帧还在处理中，跳过当前帧 ──
     // 防止 10MB bulk 帧在处理管线中堆积形成背压
     bool expected = false;
@@ -45,15 +50,12 @@ void ProcessingWorker::processFrame(const Frame& frame) {
         return;
     }
 
+    QElapsedTimer timer;
+    timer.start();
+    int64_t tParse = 0, tConvert = 0;
+
     // ── 诊断日志：前 3 帧 ──
     uint32_t diagIdx = m_diagCount.fetch_add(1, std::memory_order_relaxed);
-    if (diagIdx < 3) {
-        LOG_INFO(QString("[Frame %1] raw: %2 %3x%4 %5 bytes")
-            .arg(diagIdx)
-            .arg(QString::fromStdString(frame.format))
-            .arg(frame.width).arg(frame.height)
-            .arg(frame.data.size()));
-    }
 
     // ── 协议：raw → processed ──
     ProcessedFrame parsed;
@@ -65,6 +67,7 @@ void ProcessingWorker::processFrame(const Frame& frame) {
         m_busy.store(false, std::memory_order_release);
         return;
     }
+    tParse = timer.nsecsElapsed() / 1000;
     if (!m_protocol)
         parsed = {};
 
@@ -75,19 +78,18 @@ void ProcessingWorker::processFrame(const Frame& frame) {
         return;
     }
 
-    if (diagIdx < 3)
-        LOG_INFO(QString("[Frame %1] parsed: type=%2 %3x%4 %5 bytes")
-            .arg(diagIdx)
-            .arg(parsed.cv_type)
-            .arg(parsed.width).arg(parsed.height)
-            .arg(parsed.data.size()));
-
     // ── QImage 转换（在 worker 线程执行，不阻塞 UI）──
     QImage img = frameToQImage(parsed);
+    tConvert = timer.nsecsElapsed() / 1000;
     if (!img.isNull()) {
         m_processedCount.fetch_add(1, std::memory_order_relaxed);
         emit frameDisplayReady(img, parsed);
     }
+
+    int64_t totalUs = timer.nsecsElapsed() / 1000;
+    if (diagIdx < 3 || queueUs > 10000 || totalUs > 50000)
+        LOG_INFO(QString("[PipeDiag] seq=%1 queue=%2us parse=%3us convert=%4us total=%5us")
+            .arg(frame.frame_index).arg(queueUs).arg(tParse).arg(tConvert).arg(totalUs));
 
     m_busy.store(false, std::memory_order_release);
 }
