@@ -123,13 +123,15 @@ QImage ProcessingWorker::frameToQImage(const ProcessedFrame& frame) {
             return {};
         }
         auto* src16 = reinterpret_cast<const uint16_t*>(frame.data.data());
+        size_t n = static_cast<size_t>(w) * h;
         int shift = m_bitShift.load(std::memory_order_relaxed);
-        m_gray8Buf.resize(static_cast<size_t>(w) * h);
-        cv::Mat src(h, w, CV_16UC1, const_cast<uint16_t*>(src16));
-        cv::Mat dst(h, w, CV_8UC1, m_gray8Buf.data());
-        src.convertTo(dst, CV_8UC1, 1.0 / (1 << shift));
-        if (denoise) cv::medianBlur(dst, dst, 3);
-        return QImage(m_gray8Buf.data(), w, h, QImage::Format_Grayscale8).copy();
+        m_gray8Buf.resize(n);
+        uint8_t* dst8 = m_gray8Buf.data();
+        for (size_t i = 0; i < n; i++)
+            dst8[i] = static_cast<uint8_t>((src16[i] >> shift) & 0xFF);
+        cv::Mat gray8(h, w, CV_8UC1, dst8);
+        if (denoise) cv::medianBlur(gray8, gray8, 3);
+        return QImage(dst8, w, h, QImage::Format_Grayscale8).copy();
 
     } else {
         cv::Mat gray8(h, w, CV_8UC1, const_cast<uint8_t*>(frame.data.data()));
