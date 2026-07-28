@@ -6,10 +6,6 @@
 #include <QElapsedTimer>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/core/ocl.hpp>
-
-static bool s_oclChecked = false;
-static bool s_oclAvailable = false;
 
 ProcessingWorker::ProcessingWorker(QObject* parent) : QObject(parent) {}
 
@@ -153,34 +149,9 @@ QImage ProcessingWorker::frameToQImage(const ProcessedFrame& frame) {
         }
         QElapsedTimer t;
         t.start();
-        int shift = m_bitShift.load(std::memory_order_relaxed);
-
-        if (!s_oclChecked) {
-            s_oclAvailable = cv::ocl::haveOpenCL() && cv::ocl::useOpenCL();
-            s_oclChecked = true;
-            LOG_INFO(QString("[OCL] OpenCL %1").arg(s_oclAvailable ? "可用" : "不可用"));
-        }
-
-        if (s_oclAvailable) {
-            cv::Mat src16Mat(h, w, CV_16UC1, const_cast<uint8_t*>(frame.data.data()));
-            cv::UMat gpuSrc = src16Mat.getUMat(cv::ACCESS_READ);
-            cv::UMat gpu8;
-            gpuSrc.convertTo(gpu8, CV_8UC1, 1.0 / (1 << shift));
-            if (denoise)
-                cv::medianBlur(gpu8, gpu8, 3);
-            cv::Mat gray8;
-            gpu8.copyTo(gray8);
-            int64_t tOpenCl = t.nsecsElapsed() / 1000;
-            QImage result = QImage(gray8.data, w, h, QImage::Format_Grayscale8).copy();
-            int64_t tCopy = t.nsecsElapsed() / 1000;
-            LOG_INFO(QString("[PipeDiag] convert_detail(OCL): proc=%1us copy=%2us")
-                .arg(tOpenCl).arg(tCopy - tOpenCl));
-            return result;
-        }
-
-        // CPU fallback
         auto* src16 = reinterpret_cast<const uint16_t*>(frame.data.data());
         size_t n = static_cast<size_t>(w) * h;
+        int shift = m_bitShift.load(std::memory_order_relaxed);
         std::vector<uint8_t> buf8(n);
         for (size_t i = 0; i < n; i++)
             buf8[i] = static_cast<uint8_t>((src16[i] >> shift) & 0xFF);
@@ -190,7 +161,7 @@ QImage ProcessingWorker::frameToQImage(const ProcessedFrame& frame) {
         int64_t tBlur = t.nsecsElapsed() / 1000;
         QImage result = QImage(buf8.data(), w, h, QImage::Format_Grayscale8).copy();
         int64_t tCopy = t.nsecsElapsed() / 1000;
-        LOG_INFO(QString("[PipeDiag] convert_detail(CPU): shift=%1us blur=%2us copy=%3us")
+        LOG_INFO(QString("[PipeDiag] convert_detail: shift=%1us blur=%2us copy=%3us")
             .arg(tShift).arg(tBlur - tShift).arg(tCopy - tBlur));
         return result;
 
