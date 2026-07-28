@@ -162,15 +162,17 @@ void QtWidgetsApplication1::setupStyleSheet() {
 }
 
 void QtWidgetsApplication1::setupStatusBar() {
-    m_fpsLabel          = new QLabel(TR("FPS: --"));
+    m_fpsLabel          = new QLabel(TR("Cam FPS: --"));
+    m_dispFpsLabel      = new QLabel(TR("Disp FPS: --"));
     m_bandwidthLabel    = new QLabel(TR("Rx: -- MB/s"));
     m_temperatureLabel  = new QLabel(TR("Detector Temp: --"));
 
-    for (auto* lbl : {m_fpsLabel, m_bandwidthLabel, m_temperatureLabel}) {
+    for (auto* lbl : {m_fpsLabel, m_dispFpsLabel, m_bandwidthLabel, m_temperatureLabel}) {
         lbl->setStyleSheet("color:#FFFFFF; padding: 0 10px;");
     }
 
     statusBar()->addWidget(m_fpsLabel);
+    statusBar()->addWidget(m_dispFpsLabel);
     statusBar()->addWidget(m_bandwidthLabel);
     statusBar()->addWidget(m_temperatureLabel);
 }
@@ -267,7 +269,8 @@ void QtWidgetsApplication1::onOpenDevice() {
         m_controlPanel->setDeviceOpen(false);
         m_viewport->clearImage();
         m_viewport->setOverlayText("");
-        m_fpsLabel->setText(TR("FPS: --"));
+        m_fpsLabel->setText(TR("Cam FPS: --"));
+        m_dispFpsLabel->setText(TR("Disp FPS: --"));
         m_bandwidthLabel->setText(TR("Rx: -- MB/s"));
         m_temperatureLabel->setText(TR("Detector Temp: --"));
         LOG_INFO("Device closed");
@@ -484,7 +487,8 @@ void QtWidgetsApplication1::onApplyStream() {
         m_controlPanel->setStreaming(false);
         m_viewport->clearImage();
         m_viewport->setOverlayText("");
-        m_fpsLabel->setText(QString("FPS: --"));
+        m_fpsLabel->setText(QString("Cam FPS: --"));
+        m_dispFpsLabel->setText(QString("Disp FPS: --"));
         m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
         LOG_INFO("Streaming stopped");
         return;
@@ -525,8 +529,10 @@ void QtWidgetsApplication1::onApplyStream() {
     m_lastStatsSampleTime  = 0;
     m_lastStatsSampleFrames = 0;
     m_lastStatsSampleBytes  = 0;
+    m_lastStatsSampleCamFrames = 0;
     m_statsTickCounter = 0;
-    m_fpsLabel->setText(QString("FPS: --"));
+    m_fpsLabel->setText(QString("Cam FPS: --"));
+    m_dispFpsLabel->setText(QString("Disp FPS: --"));
     m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
 
     // 重置 worker 诊断计数器，确保新一轮启流的前3帧日志正常输出
@@ -640,7 +646,8 @@ void QtWidgetsApplication1::onDeviceLost() {
     m_controlPanel->setDeviceOpen(false);
     m_controlPanel->setStreaming(false);
     m_temperatureLabel->setText(TR("Detector Temp: --"));
-    m_fpsLabel->setText(QString("FPS: --"));
+    m_fpsLabel->setText(QString("Cam FPS: --"));
+    m_dispFpsLabel->setText(QString("Disp FPS: --"));
     m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
 
     QMessageBox::critical(this, TR("Device Lost"),
@@ -655,7 +662,8 @@ void QtWidgetsApplication1::onStreamError(const QString& error) {
 
 void QtWidgetsApplication1::updateStats() {
     if (!m_camera || !m_streaming) {
-        m_fpsLabel->setText(QString("FPS: --"));
+        m_fpsLabel->setText(QString("Cam FPS: --"));
+        m_dispFpsLabel->setText(QString("Disp FPS: --"));
         m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
         return;
     }
@@ -663,36 +671,40 @@ void QtWidgetsApplication1::updateStats() {
     qint64 now = QDateTime::currentDateTime().currentMSecsSinceEpoch();
 
     if (m_lastStatsSampleTime == 0) {
-        // 首次：记录基线，下次更新立即显示
         m_lastStatsSampleTime  = now;
         m_lastStatsSampleFrames = m_statsFrameCount;
         m_lastStatsSampleBytes  = m_statsByteCount;
+        m_lastStatsSampleCamFrames = m_camera->totalFrames();
         m_statsTickCounter = 0;
         return;
     }
 
     m_statsTickCounter++;
 
-    // 第1秒立即出第一组数据，之后每5秒更新
     if (m_statsTickCounter != 1 && m_statsTickCounter % 5 != 0)
         return;
 
     double elapsed = (now - m_lastStatsSampleTime) / 1000.0;
     if (elapsed < 0.5) return;
 
-    uint64_t frames = m_statsFrameCount - m_lastStatsSampleFrames;
-    uint64_t bytes  = m_statsByteCount - m_lastStatsSampleBytes;
+    uint64_t dispFrames = m_statsFrameCount - m_lastStatsSampleFrames;
+    uint64_t camFrames  = m_camera->totalFrames() - m_lastStatsSampleCamFrames;
+    uint64_t bytes      = m_statsByteCount - m_lastStatsSampleBytes;
 
-    int fps  = static_cast<int>(frames / elapsed + 0.5);
-    int mbps = static_cast<int>(bytes / elapsed / (1024.0 * 1024.0) + 0.5);
+    int camFps  = static_cast<int>(camFrames / elapsed + 0.5);
+    int dispFps = static_cast<int>(dispFrames / elapsed + 0.5);
+    int mbps    = static_cast<int>(bytes / elapsed / (1024.0 * 1024.0) + 0.5);
 
-    m_fpsLabel->setText(QString("FPS: %1").arg(fps));
+    m_fpsLabel->setText(QString("Cam FPS: %1").arg(camFps));
+    m_dispFpsLabel->setText(QString("Disp FPS: %1").arg(dispFps));
     m_bandwidthLabel->setText(QString("Rx: %1 MB/s").arg(mbps));
 
-    // 更新采样点
     m_lastStatsSampleTime  = now;
     m_lastStatsSampleFrames = m_statsFrameCount;
     m_lastStatsSampleBytes  = m_statsByteCount;
+    m_lastStatsSampleCamFrames = m_camera->totalFrames();
+
+    m_statsTickCounter = 0;
 }
 
 void QtWidgetsApplication1::updateDetectorTemperature() {

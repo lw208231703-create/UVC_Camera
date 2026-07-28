@@ -59,7 +59,8 @@ private:
     ImageViewport* m_viewport;
     ControlPanel*  m_controlPanel;
 
-    QLabel* m_fpsLabel;
+    QLabel* m_fpsLabel;         // 相机回调 FPS
+    QLabel* m_dispFpsLabel;     // 显示 FPS
     QLabel* m_bandwidthLabel;
     QLabel* m_temperatureLabel;
 
@@ -100,11 +101,12 @@ private:
     QTimer*         m_temperatureTimer;
     QElapsedTimer   m_statsElapsed;
     uint32_t        m_displayFrameCount = 0;
-    uint64_t        m_statsFrameCount  = 0;   // 累计帧数 (onFrameProcessed 递增)
-    uint64_t        m_statsByteCount   = 0;   // 累计字节数
+    uint64_t        m_statsFrameCount  = 0;   // 显示帧数 (renderFrame 递增)
+    uint64_t        m_statsByteCount   = 0;   // 相机字节数
     qint64          m_lastStatsSampleTime  = 0; // 上次采样时间 (ms)
-    uint64_t        m_lastStatsSampleFrames = 0;
-    uint64_t        m_lastStatsSampleBytes  = 0;
+    uint64_t        m_lastStatsSampleFrames = 0;  // 上次采样显示帧数
+    uint64_t        m_lastStatsSampleBytes  = 0;  // 上次采样字节数
+    uint64_t        m_lastStatsSampleCamFrames = 0; // 上次采样相机帧数
     int             m_statsTickCounter  = 0;
 
     // Snapshot counter
