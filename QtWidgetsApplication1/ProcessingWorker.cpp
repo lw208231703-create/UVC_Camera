@@ -6,6 +6,7 @@
 #include <QElapsedTimer>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/core/ocl.hpp>
 
 static bool s_oclChecked = false;
 static bool s_oclAvailable = false;
