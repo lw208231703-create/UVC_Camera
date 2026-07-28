@@ -19,7 +19,7 @@ std::vector<std::string> CustomUvcProtocol::getSupportedFormats() const {
     return {"custom_12bit", "custom_14bit"};
 }
 
-bool CustomUvcProtocol::parseFrame(const Frame& raw, ProcessedFrame& processed) {
+bool CustomUvcProtocol::parseFrame(Frame& raw, ProcessedFrame& processed) {
     if (!raw.valid || raw.data.empty()) return false;
 
     if (raw.format == "custom_12bit")
@@ -36,7 +36,7 @@ bool CustomUvcProtocol::parseFrame(const Frame& raw, ProcessedFrame& processed) 
 //   B1[3:0]: P1[11:8], B1[7:4]: P2[3:0]
 //   B2: P2[11:4]
 // Output: two uint16_t values per 3 input bytes
-bool CustomUvcProtocol::parse12Bit(const Frame& raw, ProcessedFrame& processed) {
+bool CustomUvcProtocol::parse12Bit(Frame& raw, ProcessedFrame& processed) {
     const uint8_t* src = raw.data.data();
     size_t srcSize = raw.data.size();
 
@@ -82,7 +82,7 @@ bool CustomUvcProtocol::parse12Bit(const Frame& raw, ProcessedFrame& processed) 
 //   Byte4: P2[9:2]
 //   Byte5: P2[1:0]  + P3[13:8]
 //   Byte6: P3[7:0]
-bool CustomUvcProtocol::parse14Bit(const Frame& raw, ProcessedFrame& processed) {
+bool CustomUvcProtocol::parse14Bit(Frame& raw, ProcessedFrame& processed) {
     const uint8_t* src = raw.data.data();
     size_t srcSize = raw.data.size();
 

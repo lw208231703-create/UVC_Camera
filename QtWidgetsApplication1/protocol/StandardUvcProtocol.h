@@ -6,15 +6,15 @@
 class StandardUvcProtocol : public IProtocolHandler {
 public:
     bool initialize(ICameraDevice* device) override;
-    bool parseFrame(const Frame& raw, ProcessedFrame& processed) override;
+    bool parseFrame(Frame& raw, ProcessedFrame& processed) override;
     std::string getProtocolName() const override { return "standard"; }
     std::vector<std::string> getSupportedFormats() const override;
 
 private:
-    bool parseYUYV(const Frame& raw, ProcessedFrame& processed);
-    bool parseMJPEG(const Frame& raw, ProcessedFrame& processed);
-    bool parseGray8(const Frame& raw, ProcessedFrame& processed);
-    bool parseGray16(const Frame& raw, ProcessedFrame& processed);
+    bool parseYUYV(Frame& raw, ProcessedFrame& processed);
+    bool parseMJPEG(Frame& raw, ProcessedFrame& processed);
+    bool parseGray8(Frame& raw, ProcessedFrame& processed);
+    bool parseGray16(Frame& raw, ProcessedFrame& processed);
 
     ICameraDevice* m_device = nullptr;
 };
