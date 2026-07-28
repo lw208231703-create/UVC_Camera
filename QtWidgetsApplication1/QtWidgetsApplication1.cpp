@@ -331,6 +331,7 @@ void QtWidgetsApplication1::onOpenDevice() {
     m_i2cBridge = std::make_unique<FTI2cBridge>(m_uvcControls->libusbHandle(), 0x0D);
     m_controlPanel->setI2cEnabled(true);
     m_controlPanel->cameraSettings()->setI2cBridge(m_i2cBridge.get());
+    m_controlPanel->cameraSettings()->refreshAll();
 
     // ── I2C Read / Write connections ──
     {
