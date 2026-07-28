@@ -13,6 +13,7 @@
 
 class UvcControls;
 class FTI2cBridge;
+class ParameterWorker;
 
 class CameraSettingsWidget : public QScrollArea {
     Q_OBJECT
@@ -22,6 +23,7 @@ public:
 
     void setControls(UvcControls* ctrl);
     void setI2cBridge(FTI2cBridge* bridge);
+    void setParamWorker(ParameterWorker* worker);
     void clearControls();
     void refreshAll();
 
@@ -40,6 +42,7 @@ private:
 
     UvcControls* m_ctrl = nullptr;
     FTI2cBridge* m_i2cBridge = nullptr;
+    ParameterWorker* m_paramWorker = nullptr;
     QWidget* m_content;
     bool m_updating = false;
 

@@ -66,6 +66,9 @@
       <Filter>UI</Filter>
     </ClCompile>
     <ClCompile Include="hal\UvcControls.cpp" />
+    <ClCompile Include="hal\ParameterWorker.cpp">
+      <Filter>HAL</Filter>
+    </ClCompile>
     <ClCompile Include="hal\FTI2cBridge.cpp" />
     <ClCompile Include="..\third_party\libusb\libusb\core.c" />
     <ClCompile Include="..\third_party\libusb\libusb\descriptor.c" />
@@ -102,6 +105,9 @@
       <Filter>HAL</Filter>
     </QtMoc>
     <QtMoc Include="hal\DeviceEnumerator.h">
+      <Filter>HAL</Filter>
+    </QtMoc>
+    <QtMoc Include="hal\ParameterWorker.h">
       <Filter>HAL</Filter>
     </QtMoc>
     <QtMoc Include="infra\LogManager.h">

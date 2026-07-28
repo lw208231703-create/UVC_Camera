@@ -72,6 +72,11 @@ private:
     // Protocol & processing
     std::unique_ptr<IProtocolHandler> m_protocol;
     std::unique_ptr<class UvcControls> m_uvcControls;
+    // ── I2C 参数工作线程 ──
+    QThread*        m_paramThread = nullptr;
+    ParameterWorker* m_paramWorker = nullptr;
+
+    // ── I2C 调试桥（直通，仅用于调试面板）──
     std::unique_ptr<FTI2cBridge> m_i2cBridge;
 
     // ── 独立帧处理线程 ──

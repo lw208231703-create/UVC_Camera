@@ -85,12 +85,19 @@ QtWidgetsApplication1::~QtWidgetsApplication1() {
     stopAll();
     DeviceEnumerator::instance().shutdown();
 
+    // 清理参数线程
+    if (m_paramThread) {
+        m_paramThread->quit();
+        m_paramThread->wait(3000);
+    }
+    // m_paramWorker 由 m_paramThread 的 finished 信号 deleteLater
+
     // 清理帧处理线程
     if (m_workerThread) {
         m_workerThread->quit();
         m_workerThread->wait(3000);
     }
-    delete m_worker;      // worker 没有 parent，手动删除
+    delete m_worker;
     m_worker = nullptr;
 }
 
@@ -327,10 +334,22 @@ void QtWidgetsApplication1::onOpenDevice() {
     m_uvcControls = std::make_unique<UvcControls>(m_camera->deviceHandle());
     m_controlPanel->cameraSettings()->setControls(m_uvcControls.get());
 
-    // Init I2C bridge + enable panel
+    // Init I2C bridge for debug panel
     m_i2cBridge = std::make_unique<FTI2cBridge>(m_uvcControls->libusbHandle(), 0x0D);
     m_controlPanel->setI2cEnabled(true);
     m_controlPanel->cameraSettings()->setI2cBridge(m_i2cBridge.get());
+
+    // Init ParameterWorker（独立线程处理所有 I2C 参数操作）
+    auto* usbHandle = m_uvcControls->libusbHandle();
+    m_paramThread = new QThread(this);
+    m_paramWorker = new ParameterWorker(usbHandle, 0x0D);
+    m_paramWorker->moveToThread(m_paramThread);
+    connect(m_paramThread, &QThread::finished, m_paramWorker, &QObject::deleteLater);
+    connect(m_paramWorker, &ParameterWorker::temperatureReady, this, [this](uint8_t temp) {
+        m_temperatureLabel->setText(TR("Detector Temp: %1 °C").arg(temp));
+    });
+    m_paramThread->start();
+    m_controlPanel->cameraSettings()->setParamWorker(m_paramWorker);
     m_controlPanel->cameraSettings()->refreshAll();
 
     // ── I2C Read / Write connections ──
@@ -709,24 +728,13 @@ void QtWidgetsApplication1::updateStats() {
 }
 
 void QtWidgetsApplication1::updateDetectorTemperature() {
-    if (!m_deviceOpen || !m_i2cBridge || !m_i2cBridge->isValid()) {
+    if (!m_deviceOpen || !m_paramWorker) {
         m_temperatureLabel->setText(TR("Detector Temp: --"));
         return;
     }
-
-    // Register 0x44: read 2 bytes in little-endian order and use bits [10:3].
-    uint8_t buf[2] = {};
-    if (m_i2cBridge->readReg(0x44, buf, 2) != 2) {
-        m_temperatureLabel->setText(TR("Detector Temp: --"));
-        return;
-    }
-
-    const uint16_t raw = static_cast<uint16_t>(buf[0])
-                       | (static_cast<uint16_t>(buf[1]) << 8);
-    const uint16_t raw12 = raw & 0x0FFF;
-    const uint8_t temperature = static_cast<uint8_t>((raw12 >> 3) & 0xFF);
-    m_temperatureLabel->setText(
-        TR("Detector Temp: %1 °C").arg(static_cast<unsigned int>(temperature)));
+    QMetaObject::invokeMethod(m_paramWorker, [this]() {
+        m_paramWorker->readTemperature();
+    }, Qt::QueuedConnection);
 }
 
 // ── Helpers ──

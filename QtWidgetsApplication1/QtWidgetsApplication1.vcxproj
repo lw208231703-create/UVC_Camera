@@ -73,6 +73,7 @@
     <QtMoc Include="ui\CameraSettingsWidget.h" />
     <QtMoc Include="ui\BitShiftSelector.h" />
     <QtMoc Include="ProcessingWorker.h" />
+    <QtMoc Include="hal\ParameterWorker.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\CameraTypes.h" />
@@ -102,6 +103,7 @@
     <ClCompile Include="protocol\StandardUvcProtocol.cpp" />
     <ClCompile Include="protocol\CustomUvcProtocol.cpp" />
     <ClCompile Include="ProcessingWorker.cpp" />
+    <ClCompile Include="hal\ParameterWorker.cpp" />
   </ItemGroup>
   <!-- libusb C sources (Windows) -->
   <ItemGroup>

@@ -1,6 +1,7 @@
 #include "CameraSettingsWidget.h"
 #include "hal/UvcControls.h"
 #include "hal/FTI2cBridge.h"
+#include "hal/ParameterWorker.h"
 #include "infra/UiStrings.h"
 #include "infra/LogManager.h"
 #include <QMessageBox>
@@ -8,6 +9,7 @@
 #include <QHBoxLayout>
 #include <QFormLayout>
 #include <QIntValidator>
+#include <QMetaObject>
 #include <QTimer>
 #include <QFrame>
 #include <cmath>
@@ -142,56 +144,23 @@ void CameraSettingsWidget::setupUi() {
         auto* grp = makeGroup(TR("Exposure"));
         auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
 
-        // Exposure time: input in μs, auto-converted to line count
         lay->addWidget(makeInputRow(TR("Exp. Time (μs)"), m_exposureEdit, "10000"));
         m_exposureEdit->setValidator(new QIntValidator(0, 10000000, m_exposureEdit));
 
         auto applyExposure = [this]() {
             if (m_updating || !m_ctrl) return;
             bool ok;
-			//输入曝光时间
             uint32_t val = (uint32_t)m_exposureEdit->text().toUInt(&ok);
             if (!ok) return;
 
-            // 读 HMAX/VMAX
-            readTimingRegisters();
-
-            if (m_timingValid) {
-                double tLineUs = (double)m_hmax / m_pixelClockMHz;                // 一行耗时 (μs) = HMAX / 时钟(MHz)
-                int rawLines = (int)std::ceil(val / tLineUs);                     // 输入μs ÷ 一行耗时 → 行数（向上取整）
-                int maxLines = (int)m_vmax - 52;                                   // 上限: VMAX-52
-                if (maxLines < 2) maxLines = 2;
-                int lines = qBound(2, rawLines, maxLines);                        // 钳位到 [2, maxLines]
-                double actualUs = (double)lines * tLineUs;                        // 实际曝光 (μs) = 行数 × 一行耗时
-                if (lines != rawLines) {
-                    m_updating = true;
-                    m_exposureEdit->setText(QString::number((int)actualUs));
-                    m_updating = false;
-                }          
-                QString detail = QString(
-                    "HMAX=%1  VMAX=%2\n"
-                    "Pixel Clock=%3 MHz\n"
-                    "T_line=%4 μs\n\n"
-                    "输入: %5 μs → %6 行\n"
-                    "实际: %7 μs (%8 行)")
-                    .arg(m_hmax).arg(m_vmax)
-                    .arg(m_pixelClockMHz, 0, 'f', 3)
-                    .arg(tLineUs, 0, 'f', 2)
-                    .arg(val).arg(rawLines)
-                    .arg(actualUs, 0, 'f', 0).arg(lines);
-                QMessageBox::information(this, "曝光换算详情", detail);
-                uint32_t expVal = (uint32_t)lines;
-                uint8_t highBuf[2] = { (uint8_t)(expVal >> 16), (uint8_t)(expVal >> 24) };
-                uint8_t lowBuf[2]  = { (uint8_t)(expVal & 0xFF), (uint8_t)((expVal >> 8) & 0xFF) };
-                m_i2cBridge->writeReg(0x42, highBuf, 2);
-                m_i2cBridge->writeReg(0x43, lowBuf, 2);
-            } else {
-                m_ctrl->setExposureAbs(val);
+            if (m_paramWorker) {
+                double pc = m_pixelClockMHz;
+                QMetaObject::invokeMethod(m_paramWorker, [wk = m_paramWorker, val, pc]() {
+                    wk->writeExposure(val, pc);
+                }, Qt::QueuedConnection);
             }
-
         };
 
-        // editingFinished fires on Enter and when focus leaves the field
         connect(m_exposureEdit, &QLineEdit::editingFinished, this, applyExposure);
 
         lay->addWidget(makeComboRow(TR("AE Mode"), m_aeModeCombo));
@@ -199,11 +168,13 @@ void CameraSettingsWidget::setupUi() {
         m_aeModeCombo->addItem(TR("Auto"), 2);
         connect(m_aeModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
                 [this](int idx) {
-            if (!m_updating && m_i2cBridge && m_i2cBridge->isValid()) {
+            if (m_updating) return;
+            if (auto* w = m_paramWorker) {
                 uint8_t data[16] = {};
-                if (m_aeModeCombo->itemData(idx).toUInt() == 2) // Auto
+                if (m_aeModeCombo->itemData(idx).toUInt() == 2)
                     data[0] = 0x01;
-                m_i2cBridge->writeReg(0x40, data, 16);
+                QByteArray d((const char*)data, 16);
+                QMetaObject::invokeMethod(w, [w, d]() { w->writeReg(0x40, d); }, Qt::QueuedConnection);
             }
         });
 
@@ -218,13 +189,15 @@ void CameraSettingsWidget::setupUi() {
         lay->addWidget(makeInputRow(TR("帧率"), m_fpsEdit, ""));
         m_fpsEdit->setValidator(new QIntValidator(0, 65535, m_fpsEdit));
         connect(m_fpsEdit, &QLineEdit::editingFinished, this, [this]() {
-            if (m_updating || !m_i2cBridge || !m_i2cBridge->isValid()) return;
+            if (m_updating || !m_paramWorker) return;
             bool ok;
             int val = m_fpsEdit->text().toInt(&ok);
             if (!ok) return;
             if (val < 10) { val = 10; m_fpsEdit->setText(QString::number(val)); }
             uint8_t data[2] = { (uint8_t)(val & 0xFF), (uint8_t)(val >> 8) };
-            m_i2cBridge->writeReg(0x10, data, 2);
+            QByteArray d((const char*)data, 2);
+            auto* w = m_paramWorker;
+            QMetaObject::invokeMethod(w, [w, d]() { w->writeReg(0x10, d); }, Qt::QueuedConnection);
         });
 
         lay->addWidget(makeComboRow(TR("像素格式"), m_pixelFormatCombo));
@@ -232,44 +205,50 @@ void CameraSettingsWidget::setupUi() {
         m_pixelFormatCombo->addItem("8bit", 2);
         connect(m_pixelFormatCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
                 [this](int idx) {
-            if (m_updating || !m_i2cBridge || !m_i2cBridge->isValid()) return;
+            if (m_updating || !m_paramWorker) return;
             uint8_t data[16] = {};
             data[0] = (uint8_t)m_pixelFormatCombo->itemData(idx).toUInt();
-            m_i2cBridge->writeReg(0x50, data, 16);
-            // FPGA bug workaround: 切换像素格式后默认写曝光 2 行
+            QByteArray fmtData((const char*)data, 16);
             uint8_t expHigh[2] = { 0x00, 0x00 };
             uint8_t expLow[2]  = { 0x02, 0x00 };
-            m_i2cBridge->writeReg(0x42, expHigh, 2);
-            m_i2cBridge->writeReg(0x43, expLow, 2);
+            QByteArray eh((const char*)expHigh, 2), el((const char*)expLow, 2);
+            auto* w = m_paramWorker;
+            QMetaObject::invokeMethod(w, [w, fmtData, eh, el]() {
+                w->writeReg(0x50, fmtData);
+                w->writeReg(0x42, eh);
+                w->writeReg(0x43, el);
+            }, Qt::QueuedConnection);
         });
 
         lay->addWidget(makeInputRow(TR("开窗X"), m_roiXEdit, "0"));
         m_roiXEdit->setValidator(new QIntValidator(0, 2560, m_roiXEdit));
         connect(m_roiXEdit, &QLineEdit::editingFinished, this, [this]() {
-            if (m_updating || !m_i2cBridge || !m_i2cBridge->isValid()) return;
+            if (m_updating || !m_paramWorker) return;
             bool ok;
             int val = m_roiXEdit->text().toInt(&ok);
             if (!ok) return;
-            // X: 对齐到8 + 112偏置，写入寄存器0x47 (2字节, 小端)
             int alignedX = (val / 8) * 8;
             uint16_t regVal = (uint16_t)(alignedX + 112);
             uint8_t data[2] = { (uint8_t)(regVal & 0xFF), (uint8_t)(regVal >> 8) };
-            m_i2cBridge->writeReg(0x47, data, 2);
+            QByteArray d((const char*)data, 2);
+            auto* w = m_paramWorker;
+            QMetaObject::invokeMethod(w, [w, d]() { w->writeReg(0x47, d); }, Qt::QueuedConnection);
             m_roiXEdit->setText(QString::number(alignedX));
         });
 
         lay->addWidget(makeInputRow(TR("开窗Y"), m_roiYEdit, "0"));
         m_roiYEdit->setValidator(new QIntValidator(0, 2048, m_roiYEdit));
         connect(m_roiYEdit, &QLineEdit::editingFinished, this, [this]() {
-            if (m_updating || !m_i2cBridge || !m_i2cBridge->isValid()) return;
+            if (m_updating || !m_paramWorker) return;
             bool ok;
             int val = m_roiYEdit->text().toInt(&ok);
             if (!ok) return;
-            // Y: 对齐到4 + 4偏置，写入寄存器0x48 (2字节, 小端)
             int alignedY = (val / 4) * 4;
             uint16_t regVal = (uint16_t)(alignedY + 4);
             uint8_t data[2] = { (uint8_t)(regVal & 0xFF), (uint8_t)(regVal >> 8) };
-            m_i2cBridge->writeReg(0x48, data, 2);
+            QByteArray d((const char*)data, 2);
+            auto* w = m_paramWorker;
+            QMetaObject::invokeMethod(w, [w, d]() { w->writeReg(0x48, d); }, Qt::QueuedConnection);
             m_roiYEdit->setText(QString::number(alignedY));
         });
 
@@ -288,12 +267,66 @@ void CameraSettingsWidget::setControls(UvcControls* ctrl) {
 
 void CameraSettingsWidget::setI2cBridge(FTI2cBridge* bridge) {
     m_i2cBridge = bridge;
-    if (bridge) readTimingRegisters();
+    if (bridge && !m_paramWorker)
+        readTimingRegisters();
+}
+
+void CameraSettingsWidget::setParamWorker(ParameterWorker* worker) {
+    m_paramWorker = worker;
+    if (!worker) return;
+
+    // 连接信号：实现异步结果 → UI 更新
+    connect(worker, &ParameterWorker::timingReady, this, [this](uint16_t hmax, uint32_t vmax) {
+        m_hmax = hmax;
+        m_vmax = vmax;
+        m_timingValid = (hmax > 0);
+        if (m_timingValid)
+            LOG_INFO(QString("Timing: HMAX=%1, VMAX=%2").arg(hmax).arg(vmax));
+    });
+
+    connect(worker, &ParameterWorker::exposureWritten, this, [this](uint64_t actualUs, bool ok) {
+        if (ok) {
+            m_updating = true;
+            m_exposureEdit->setText(QString::number((int)actualUs));
+            m_updating = false;
+        }
+    });
+
+    connect(worker, &ParameterWorker::allReadReady, this, [this](
+        uint16_t fps, uint8_t pixelFmt, int roiX, int roiY,
+        uint32_t exposureLines, uint8_t aeMode) {
+        m_updating = true;
+        m_fpsEdit->setText(QString::number(fps));
+        for (int i = 0; i < m_pixelFormatCombo->count(); i++) {
+            if (m_pixelFormatCombo->itemData(i).toUInt() == pixelFmt) {
+                m_pixelFormatCombo->setCurrentIndex(i); break;
+            }
+        }
+        m_roiXEdit->setText(QString::number(roiX));
+        m_roiYEdit->setText(QString::number(roiY));
+        int mode = aeMode ? 2 : 1;
+        for (int i = 0; i < m_aeModeCombo->count(); i++) {
+            if (m_aeModeCombo->itemData(i).toUInt() == (uint)mode) { m_aeModeCombo->setCurrentIndex(i); break; }
+        }
+        // 曝光: 行数 → μs
+        if (m_timingValid) {
+            double tLineUs = (double)m_hmax / m_pixelClockMHz;
+            m_exposureEdit->setText(QString::number((int)(exposureLines * tLineUs)));
+        } else {
+            m_exposureEdit->setText(QString::number(exposureLines));
+        }
+        m_updating = false;
+    });
+
+    // 异步读取时序 + 全部参数
+    QMetaObject::invokeMethod(worker, [worker]() { worker->readTiming(); }, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(worker, [worker]() { worker->readAll(); }, Qt::QueuedConnection);
 }
 
 void CameraSettingsWidget::clearControls() {
     m_ctrl = nullptr;
     m_i2cBridge = nullptr;
+    m_paramWorker = nullptr;
     m_content->setEnabled(false);
     m_timingValid = false;
 }
@@ -302,78 +335,27 @@ void CameraSettingsWidget::refreshAll() {
     if (!m_ctrl || !m_ctrl->isValid()) return;
     m_updating = true;
 
-    uint16_t u16; uint32_t u32; uint8_t u8;
-
-    if (m_i2cBridge && m_i2cBridge->isValid()) {
-        uint8_t fpsBuf[2] = {};
-        if (m_i2cBridge->readReg(0x10, fpsBuf, 2) == 2) {
-            uint16_t fps = (fpsBuf[1] << 8) | fpsBuf[0];
-            m_fpsEdit->setText(QString::number(fps));
-        }
-        uint8_t fmtBuf[16] = {};
-        if (m_i2cBridge->readReg(0x50, fmtBuf, 16) == 16) {
-            for (int i = 0; i < m_pixelFormatCombo->count(); i++) {
-                if (m_pixelFormatCombo->itemData(i).toUInt() == fmtBuf[0]) {
-                    m_pixelFormatCombo->setCurrentIndex(i); break;
-        }
-        uint8_t roiXBuf[2] = {};
-        if (m_i2cBridge->readReg(0x47, roiXBuf, 2) == 2) {
-            uint16_t regVal = (roiXBuf[1] << 8) | roiXBuf[0];
-            int roiX = (int)regVal - 112;
-            if (roiX < 0) roiX = 0;
-            m_roiXEdit->setText(QString::number(roiX));
-        }
-        uint8_t roiYBuf[2] = {};
-        if (m_i2cBridge->readReg(0x48, roiYBuf, 2) == 2) {
-            uint16_t regVal = (roiYBuf[1] << 8) | roiYBuf[0];
-            int roiY = (int)regVal - 4;
-            if (roiY < 0) roiY = 0;
-            m_roiYEdit->setText(QString::number(roiY));
-        }
-    }
-        }
-    }
-
-    // Gain
+    // Gain — 通过 UVC 控制（已有 QThreadPool 异步）
+    uint16_t u16;
     if (m_ctrl->getGain(u16)) { m_gainEdit->setText(QString::number(u16)); }
 
-    // Exposure: 从 I2C 0x42+0x43 读回行数, 转换为 μs 显示
-    if (m_i2cBridge && m_i2cBridge->isValid()) {
-        uint8_t expHBuf[2] = {};
-        if (m_i2cBridge->readReg(0x42, expHBuf, 2) == 2) {
-            uint8_t expLBuf[2] = {};
-            if (m_i2cBridge->readReg(0x43, expLBuf, 2) == 2) {
-                u32 = ((uint32_t)(expHBuf[0] | (expHBuf[1] << 8)) << 16)
-                    | (uint32_t)(expLBuf[0] | (expLBuf[1] << 8));
-                if (m_timingValid) {
-                    double tLineUs = (double)m_hmax / m_pixelClockMHz;
-                    m_exposureEdit->setText(QString::number((int)(u32 * tLineUs)));
-                } else {
-                    m_exposureEdit->setText(QString::number(u32));
-                }
-            }
-        }
+    // 其余参数通过 ParameterWorker 异步读取
+    if (m_paramWorker) {
+        QMetaObject::invokeMethod(m_paramWorker, [this]() {
+            m_paramWorker->readAll();
+        }, Qt::QueuedConnection);
     }
-    if (m_i2cBridge && m_i2cBridge->isValid()) {
-        uint8_t aeBuf[16] = {};
-        if (m_i2cBridge->readReg(0x40, aeBuf, 16) == 16) {
-            int mode = aeBuf[0] ? 2 : 1;
-            for (int i = 0; i < m_aeModeCombo->count(); i++) {
-                if (m_aeModeCombo->itemData(i).toUInt() == (uint)mode) { m_aeModeCombo->setCurrentIndex(i); break; }
-            }
-        }
-    }
+
     m_updating = false;
 }
 
-// ── Read HMAX from 0x56 / VMAX from 0x45+0x46 via I2C (2 bytes each, little-endian) ──
+// ── Read HMAX/VMAX（同步备选，仅用于 m_i2cBridge 无 ParameterWorker 时）──
 void CameraSettingsWidget::readTimingRegisters() {
     if (!m_i2cBridge || !m_i2cBridge->isValid()) {
         LOG_WARNING("I2C bridge not available for reading timing registers");
         return;
     }
 
-    // HMAX: register 0x56, 2 bytes, little-endian
     uint8_t hmaxBuf[2] = {};
     int ret = m_i2cBridge->readReg(0x56, hmaxBuf, 2);
     if (ret < 2) {
@@ -383,31 +365,20 @@ void CameraSettingsWidget::readTimingRegisters() {
     }
     m_hmax = (uint16_t)(hmaxBuf[0] | (hmaxBuf[1] << 8));
 
-    // VMAX: 0x45[7:0] = vmax[23:16], 0x46 = vmax[15:0] (小端)
     uint8_t vmaxHBuf[2] = {};
     ret = m_i2cBridge->readReg(0x45, vmaxHBuf, 2);
-    if (ret < 2) {
-        LOG_ERROR(QString("Failed to read VMAX high register 0x45 (ret=%1)").arg(ret));
-        m_timingValid = false;
-        return;
-    }
+    if (ret < 2) { m_timingValid = false; return; }
     uint8_t vmaxLBuf[2] = {};
     ret = m_i2cBridge->readReg(0x46, vmaxLBuf, 2);
-    if (ret < 2) {
-        LOG_ERROR(QString("Failed to read VMAX low register 0x46 (ret=%1)").arg(ret));
-        m_timingValid = false;
-        return;
-    }
+    if (ret < 2) { m_timingValid = false; return; }
     m_vmax = (((uint32_t)(vmaxHBuf[0] | (vmaxHBuf[1] << 8)) & 0xFF) << 16)
            | (uint32_t)(vmaxLBuf[0] | (vmaxLBuf[1] << 8));
 
     LOG_INFO(QString("Timing: HMAX=%1, VMAX=%2").arg(m_hmax).arg(m_vmax));
     m_timingValid = true;
-
     recalcTiming();
 }
 
-// ── Recalculate timing parameters ──
 void CameraSettingsWidget::recalcTiming() {
 }
 
