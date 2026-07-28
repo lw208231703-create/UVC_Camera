@@ -152,14 +152,14 @@ QImage ProcessingWorker::frameToQImage(const ProcessedFrame& frame) {
         auto* src16 = reinterpret_cast<const uint16_t*>(frame.data.data());
         size_t n = static_cast<size_t>(w) * h;
         int shift = m_bitShift.load(std::memory_order_relaxed);
-        std::vector<uint8_t> buf8(n);
+        m_buf8.resize(n);
         for (size_t i = 0; i < n; i++)
-            buf8[i] = static_cast<uint8_t>((src16[i] >> shift) & 0xFF);
+            m_buf8[i] = static_cast<uint8_t>((src16[i] >> shift) & 0xFF);
         int64_t tShift = t.nsecsElapsed() / 1000;
-        cv::Mat gray8(h, w, CV_8UC1, buf8.data());
+        cv::Mat gray8(h, w, CV_8UC1, m_buf8.data());
         if (denoise) cv::medianBlur(gray8, gray8, 3);
         int64_t tBlur = t.nsecsElapsed() / 1000;
-        QImage result = QImage(buf8.data(), w, h, QImage::Format_Grayscale8).copy();
+        QImage result = QImage(m_buf8.data(), w, h, QImage::Format_Grayscale8).copy();
         int64_t tCopy = t.nsecsElapsed() / 1000;
         LOG_INFO(QString("[PipeDiag] convert_detail: shift=%1us blur=%2us copy=%3us")
             .arg(tShift).arg(tBlur - tShift).arg(tCopy - tBlur));

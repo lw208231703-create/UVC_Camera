@@ -63,4 +63,7 @@ private:
     Frame m_pendingFrame;
     bool m_hasPendingFrame = false;
     std::atomic<bool> m_draining{false};
+
+    // ── frameToQImage 复用缓冲（避免每帧重新分配 5MB）──
+    std::vector<uint8_t> m_buf8;
 };
