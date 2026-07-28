@@ -6,6 +6,7 @@
 #include "hal/LibuvcCameraDevice.h"
 #include "hal/UvcControls.h"
 #include "hal/FTI2cBridge.h"
+#include "hal/ParameterWorker.h"
 #include "protocol/StandardUvcProtocol.h"
 #include "protocol/CustomUvcProtocol.h"
 #include "ProcessingWorker.h"

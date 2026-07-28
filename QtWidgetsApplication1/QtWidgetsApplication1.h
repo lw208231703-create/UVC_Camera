@@ -19,6 +19,7 @@ class LibuvcCameraDevice;
 class IProtocolHandler;
 class ProcessingWorker;
 class FTI2cBridge;
+class ParameterWorker;
 
 #include "core/CameraTypes.h"
 
