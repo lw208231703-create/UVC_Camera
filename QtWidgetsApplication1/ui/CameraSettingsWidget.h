@@ -44,8 +44,7 @@ private:
     bool m_updating = false;
 
     // ── Gain ──
-    QSlider* m_gainSlider;
-    QLabel*  m_gainLabel;
+    QLineEdit* m_gainEdit;
 
     // ── Exposure ──
     QLineEdit* m_exposureEdit;

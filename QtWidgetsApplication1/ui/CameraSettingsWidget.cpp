@@ -124,9 +124,15 @@ void CameraSettingsWidget::setupUi() {
         auto* grp = makeGroup(TR("Gain"));
         auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
 
-        lay->addWidget(makeSliderRow(TR("Gain"), m_gainSlider, m_gainLabel, 0, 255, 0));
-        connectSlider(m_gainSlider, m_gainLabel, 1.0,
-                      [this](int v) { return m_ctrl->setGain((uint16_t)v); });
+        lay->addWidget(makeInputRow(TR("Gain"), m_gainEdit, "0"));
+        m_gainEdit->setValidator(new QIntValidator(0, 255, m_gainEdit));
+        connect(m_gainEdit, &QLineEdit::editingFinished, this, [this]() {
+            if (m_updating || !m_ctrl) return;
+            bool ok;
+            int val = m_gainEdit->text().toInt(&ok);
+            if (!ok) return;
+            m_ctrl->setGain((uint16_t)val);
+        });
 
         main->addWidget(grp);
     }
@@ -329,7 +335,7 @@ void CameraSettingsWidget::refreshAll() {
     }
 
     // Gain
-    if (m_ctrl->getGain(u16)) { m_gainSlider->setValue(u16); m_gainLabel->setText(QString::number(u16)); }
+    if (m_ctrl->getGain(u16)) { m_gainEdit->setText(QString::number(u16)); }
 
     // Exposure: 从 I2C 0x42+0x43 读回行数, 转换为 μs 显示
     if (m_i2cBridge && m_i2cBridge->isValid()) {
