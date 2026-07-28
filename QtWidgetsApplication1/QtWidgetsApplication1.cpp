@@ -162,8 +162,8 @@ void QtWidgetsApplication1::setupStyleSheet() {
 }
 
 void QtWidgetsApplication1::setupStatusBar() {
-    m_fpsLabel          = new QLabel(TR("Cam FPS: --"));
-    m_dispFpsLabel      = new QLabel(TR("Disp FPS: --"));
+    m_fpsLabel          = new QLabel(TR("相机FPS: --"));
+    m_dispFpsLabel      = new QLabel(TR("显示FPS: --"));
     m_bandwidthLabel    = new QLabel(TR("Rx: -- MB/s"));
     m_temperatureLabel  = new QLabel(TR("Detector Temp: --"));
 
@@ -269,8 +269,8 @@ void QtWidgetsApplication1::onOpenDevice() {
         m_controlPanel->setDeviceOpen(false);
         m_viewport->clearImage();
         m_viewport->setOverlayText("");
-        m_fpsLabel->setText(TR("Cam FPS: --"));
-        m_dispFpsLabel->setText(TR("Disp FPS: --"));
+        m_fpsLabel->setText(TR("相机FPS: --"));
+        m_dispFpsLabel->setText(TR("显示FPS: --"));
         m_bandwidthLabel->setText(TR("Rx: -- MB/s"));
         m_temperatureLabel->setText(TR("Detector Temp: --"));
         LOG_INFO("Device closed");
@@ -487,8 +487,8 @@ void QtWidgetsApplication1::onApplyStream() {
         m_controlPanel->setStreaming(false);
         m_viewport->clearImage();
         m_viewport->setOverlayText("");
-        m_fpsLabel->setText(QString("Cam FPS: --"));
-        m_dispFpsLabel->setText(QString("Disp FPS: --"));
+        m_fpsLabel->setText(QString("相机FPS: --"));
+        m_dispFpsLabel->setText(QString("显示FPS: --"));
         m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
         LOG_INFO("Streaming stopped");
         return;
@@ -531,8 +531,8 @@ void QtWidgetsApplication1::onApplyStream() {
     m_lastStatsSampleBytes  = 0;
     m_lastStatsSampleCamFrames = 0;
     m_statsTickCounter = 0;
-    m_fpsLabel->setText(QString("Cam FPS: --"));
-    m_dispFpsLabel->setText(QString("Disp FPS: --"));
+    m_fpsLabel->setText(QString("相机FPS: --"));
+    m_dispFpsLabel->setText(QString("显示FPS: --"));
     m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
 
     // 重置 worker 诊断计数器，确保新一轮启流的前3帧日志正常输出
@@ -646,8 +646,8 @@ void QtWidgetsApplication1::onDeviceLost() {
     m_controlPanel->setDeviceOpen(false);
     m_controlPanel->setStreaming(false);
     m_temperatureLabel->setText(TR("Detector Temp: --"));
-    m_fpsLabel->setText(QString("Cam FPS: --"));
-    m_dispFpsLabel->setText(QString("Disp FPS: --"));
+    m_fpsLabel->setText(QString("相机FPS: --"));
+    m_dispFpsLabel->setText(QString("显示FPS: --"));
     m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
 
     QMessageBox::critical(this, TR("Device Lost"),
@@ -662,8 +662,8 @@ void QtWidgetsApplication1::onStreamError(const QString& error) {
 
 void QtWidgetsApplication1::updateStats() {
     if (!m_camera || !m_streaming) {
-        m_fpsLabel->setText(QString("Cam FPS: --"));
-        m_dispFpsLabel->setText(QString("Disp FPS: --"));
+        m_fpsLabel->setText(QString("相机FPS: --"));
+        m_dispFpsLabel->setText(QString("显示FPS: --"));
         m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
         return;
     }
@@ -695,8 +695,8 @@ void QtWidgetsApplication1::updateStats() {
     int dispFps = static_cast<int>(dispFrames / elapsed + 0.5);
     int mbps    = static_cast<int>(bytes / elapsed / (1024.0 * 1024.0) + 0.5);
 
-    m_fpsLabel->setText(QString("Cam FPS: %1").arg(camFps));
-    m_dispFpsLabel->setText(QString("Disp FPS: %1").arg(dispFps));
+    m_fpsLabel->setText(QString("相机FPS: %1").arg(camFps));
+    m_dispFpsLabel->setText(QString("显示FPS: %1").arg(dispFps));
     m_bandwidthLabel->setText(QString("Rx: %1 MB/s").arg(mbps));
 
     m_lastStatsSampleTime  = now;
