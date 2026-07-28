@@ -17,7 +17,8 @@ void ImageViewport::setImage(const QImage& image) {
     m_sourceImage = image;
     if (m_fitToWindow)
         updateDisplay();
-    m_pixmap = QPixmap::fromImage(m_sourceImage);
+    else
+        m_pixmap = QPixmap::fromImage(m_sourceImage);
     update();
 }
 
