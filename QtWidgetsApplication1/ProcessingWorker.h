@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QImage>
+#include <QMutex>
 #include <atomic>
 #include <cstdint>
 #include "core/CameraTypes.h"
@@ -11,11 +12,10 @@ class IProtocolHandler;
 /**
  * @brief 帧处理工作线程：协议解析 + QImage 转换在独立线程中完成。
  *
- * 由 QtWidgetsApplication1 持有，通过 moveToThread() 移至 worker QThread。
- * 信号/槽全部使用 Qt::QueuedConnection（跨线程自动）：
- *   - 接收: processFrame(const Frame&) — 来自 libuvc 回调
- *   - 发送: frameDisplayReady(QImage, ProcessedFrame) — 发往主线程
- *   - 内置丢帧: 当正在处理上一帧时，新帧直接丢弃 (atomic busy flag)
+ * 线程模型（有界队列，防止低性能 PC 上事件队列堆积帧深拷贝导致内存膨胀）：
+ *   - enqueueFrame() — 由 libuvc 回调经 DirectConnection 同步调用。
+ *     帧写入加锁单槽位（只保留最新），且仅在 worker 空闲时投递 drainPending() 无数据事件。
+ *   - frameDisplayReady() — DirectConnection 到主窗口暂存槽。
  */
 class ProcessingWorker : public QObject {
     Q_OBJECT
@@ -31,18 +31,24 @@ public:
     uint64_t processedCount() const;
     uint64_t droppedCount() const;
 
-    /// 重置诊断计数器（在每次启流时调用）
     void resetDiagCounters();
 
-public slots:
-    /// 在 worker 线程上处理原始帧（通过 QueuedConnection 从相机接收）
-    void processFrame(const Frame& frame);
+    /// 线程安全入队：可从任意线程调用。
+    /// 槽位中未处理的旧帧被覆盖并计为丢帧——始终只保留最新。
+    void enqueueFrame(const Frame& frame);
+
+    /// 清空待处理帧（停流时调用）
+    void clearPending();
 
 signals:
-    /// 帧处理完成（QueuedConnection 回主线程）
     void frameDisplayReady(QImage img, ProcessedFrame parsed);
 
+private slots:
+    /// 在 worker 线程排空待处理帧（事件本身不携带数据）
+    void drainPending();
+
 private:
+    void processFrame(Frame frame);
     QImage frameToQImage(const ProcessedFrame& frame);
 
     IProtocolHandler* m_protocol = nullptr;
@@ -50,6 +56,11 @@ private:
     std::atomic<bool> m_denoiseEnabled{true};
     std::atomic<uint64_t> m_processedCount{0};
     std::atomic<uint64_t> m_droppedCount{0};
-    std::atomic<bool> m_busy{false};
     std::atomic<uint32_t> m_diagCount{0};
+
+    // ── 最新帧单槽位（内存有界：最多 1 帧待处理 + 1 帧处理中）──
+    QMutex m_pendingMutex;
+    Frame m_pendingFrame;
+    bool m_hasPendingFrame = false;
+    std::atomic<bool> m_draining{false};
 };

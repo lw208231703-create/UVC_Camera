@@ -22,6 +22,7 @@
 #include <QCloseEvent>
 #include <QApplication>
 #include <QMetaType>
+#include <QMutexLocker>
 #include <libuvc/libuvc.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
@@ -46,10 +47,11 @@ QtWidgetsApplication1::QtWidgetsApplication1(QWidget* parent)
     m_worker = new ProcessingWorker;  // no parent — will be moved
     m_worker->moveToThread(m_workerThread);
 
-    // Worker → 主线程：处理好的帧送显
+    // Worker → 主线程：处理好的帧送显。DirectConnection 在 worker 线程内
+    // 同步执行，仅把帧写入加锁槽位；由无参数的 drainDisplay 事件取帧送显。
     connect(m_worker, &ProcessingWorker::frameDisplayReady,
             this, &QtWidgetsApplication1::onFrameProcessed,
-            Qt::QueuedConnection);
+            Qt::DirectConnection);
 
     m_workerThread->start();
 
@@ -301,10 +303,11 @@ void QtWidgetsApplication1::onOpenDevice() {
     }
 
     // Connect signals
-    // frameReady → worker 线程（帧处理在独立线程进行，不阻塞 UI）
+    // frameReady → worker 的 enqueueFrame（DirectConnection 在 libuvc 回调线程
+    // 同步执行，帧写入单槽并覆盖旧帧，Qt 事件队列中不堆积帧数据拷贝）
     connect(m_camera.get(), &LibuvcCameraDevice::frameReady,
-            m_worker, &ProcessingWorker::processFrame,
-            Qt::QueuedConnection);
+            m_worker, &ProcessingWorker::enqueueFrame,
+            Qt::DirectConnection);
     connect(m_camera.get(), &LibuvcCameraDevice::deviceLost,
             this, &QtWidgetsApplication1::onDeviceLost);
     connect(m_camera.get(), &LibuvcCameraDevice::streamingError,
@@ -475,8 +478,8 @@ void QtWidgetsApplication1::onApplyStream() {
     if (!m_deviceOpen || !m_camera) return;
 
     if (m_streaming) {
-        // Stop
         m_camera->stopStreaming();
+        clearFramePipeline();
         m_streaming = false;
         m_controlPanel->setStreaming(false);
         m_viewport->clearImage();
@@ -533,51 +536,73 @@ void QtWidgetsApplication1::onApplyStream() {
         .arg(fmt.width).arg(fmt.height));
 }
 
-// ── Frame display (主线程，仅负责 UI) ──
-// 帧的协议解析 + QImage 转换已在 ProcessingWorker 线程中完成。
+// ── Frame display（两级合帧管线）──
+// worker 线程: onFrameProcessed (DirectConnection) —— 仅把帧暂存到加锁槽位
+// 主线程:      drainDisplay → renderFrame —— 取最新帧更新 UI
+// Qt 事件队列中只存在无参数的 drainDisplay 调用，帧数据永不排队。
 
 void QtWidgetsApplication1::onFrameProcessed(QImage img, ProcessedFrame parsed) {
+    {
+        QMutexLocker locker(&m_displayMutex);
+        m_pendingImage = std::move(img);
+        m_pendingParsed = std::move(parsed);
+        m_hasDisplayFrame = true;
+    }
+    if (!m_displayDraining.exchange(true, std::memory_order_acq_rel))
+        QMetaObject::invokeMethod(this, "drainDisplay", Qt::QueuedConnection);
+}
+
+void QtWidgetsApplication1::drainDisplay() {
+    for (;;) {
+        QImage img;
+        ProcessedFrame parsed;
+        {
+            QMutexLocker locker(&m_displayMutex);
+            if (!m_hasDisplayFrame) {
+                m_displayDraining.store(false, std::memory_order_release);
+                if (!m_hasDisplayFrame)
+                    return;
+                m_displayDraining.store(true, std::memory_order_release);
+            }
+            img = std::move(m_pendingImage);
+            parsed = std::move(m_pendingParsed);
+            m_pendingImage = QImage();
+            m_pendingParsed = ProcessedFrame{};
+            m_hasDisplayFrame = false;
+        }
+        renderFrame(std::move(img), std::move(parsed));
+    }
+}
+
+void QtWidgetsApplication1::renderFrame(QImage img, ProcessedFrame parsed) {
     if (!m_streaming) return;
     if (img.isNull()) return;
 
     int64_t tsNow = QDateTime::currentMSecsSinceEpoch() * 1000;
     int64_t queue2Us = tsNow - parsed.pipeline_ts_us;
+    if (queue2Us > 50000)
+        LOG_INFO(QString("[PipeDiag] MAIN: queue2=%1us").arg(queue2Us));
 
-    if (m_statsFrameCount % 30 == 0 || queue2Us > 50000)
-        LOG_INFO(QString("[PipeDiag] MAIN: frame=%1 display_frame=%2 queue2=%3us")
-            .arg(m_statsFrameCount).arg(m_displayFrameCount).arg(queue2Us));
-
-    QElapsedTimer dispTimer;
-    dispTimer.start();
-
-    // 保存最后帧用于截图
     m_lastFrame = std::move(parsed);
-
-    // 显示
     m_viewport->setImage(img);
 
-    int64_t dispUs = dispTimer.nsecsElapsed() / 1000;
-    if (dispUs > 5000)
-        LOG_INFO(QString("[PipeDiag] MAIN: setImage=%1us").arg(dispUs));
-
-    // 保存最后帧用于截图
-    m_lastFrame = std::move(parsed);
-
-    // 显示
-    m_viewport->setImage(img);
-
-    // Stats: 累计计数器
     m_statsFrameCount++;
     if (m_camera) m_statsByteCount = m_camera->totalBytes();
 
-    // HUD overlay
     m_displayFrameCount++;
     auto now = QDateTime::currentDateTime();
     m_viewport->setOverlayText(
         QString("%1  Frame: %2")
             .arg(now.toString("hh:mm:ss.zzz"))
             .arg(m_displayFrameCount));
+}
 
+void QtWidgetsApplication1::clearFramePipeline() {
+    if (m_worker) m_worker->clearPending();
+    QMutexLocker locker(&m_displayMutex);
+    m_pendingImage = QImage();
+    m_pendingParsed = ProcessedFrame{};
+    m_hasDisplayFrame = false;
 }
 
 // ── Snapshot (all formats → TIFF via cv::imwrite) ──
@@ -695,9 +720,9 @@ void QtWidgetsApplication1::updateDetectorTemperature() {
 
 void QtWidgetsApplication1::stopAll() {
     if (m_camera) {
-        // 断开所有信号连接，防止后续销毁时残留排队事件
         m_camera->disconnect();
         m_camera->stopStreaming();
     }
+    clearFramePipeline();
     m_streaming = false;
 }

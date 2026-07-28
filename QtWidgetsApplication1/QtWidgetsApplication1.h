@@ -7,6 +7,9 @@
 #include <QElapsedTimer>
 #include <QList>
 #include <QThread>
+#include <QImage>
+#include <QMutex>
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -31,6 +34,7 @@ private slots:
     void onOpenDevice();
     void onApplyStream();
     void onFrameProcessed(QImage img, ProcessedFrame parsed);
+    void drainDisplay();
     void onSnapshot();
 
     void onDeviceLost();
@@ -47,6 +51,8 @@ private:
 
     void populateFormats();
     void stopAll();
+    void clearFramePipeline();
+    void renderFrame(QImage img, ProcessedFrame parsed);
 
     // UI
     QSplitter*     m_splitter;
@@ -80,6 +86,14 @@ private:
     ProcessedFrame m_lastFrame;
     int m_bitShift = 8;          // 16-bit display: bit shift (8=MSB, 0=LSB)
     bool m_denoiseEnabled = true; // 降噪开关
+
+    // ── 显示帧单槽位（worker → UI 合帧，防止主线程事件队列堆积帧拷贝）──
+    // onFrameProcessed (DirectConnection, worker 线程) 写入；drainDisplay (主线程) 取出。
+    QMutex m_displayMutex;
+    QImage m_pendingImage;
+    ProcessedFrame m_pendingParsed;
+    bool m_hasDisplayFrame = false;
+    std::atomic<bool> m_displayDraining{false};
 
     // Stats
     QTimer*         m_statsTimer;
