@@ -19,6 +19,7 @@
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
+    <TargetName>UVC-Camera</TargetName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt_defaults.props')">
@@ -179,8 +180,25 @@
     <Exec Condition="!Exists('$(SolutionDir)..\third_party\libusb\libusb\version_describe.h')" Command="echo /* Auto-generated */ &gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #ifndef LIBUSB_DESCRIBE &gt;&gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #define LIBUSB_DESCRIBE &quot;custom-build&quot; &gt;&gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #endif &gt;&gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot;" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <Target Name="CopyOpenCVDll" AfterTargets="Build">
+  <!-- 步骤 1：Qt 部署 + OpenCV DLL -->
+  <Target Name="DeployDependencies" AfterTargets="Build">
+    <Exec Command="&quot;$(QtInstallDir)\bin\windeployqt6.exe&quot; --release &quot;$(OutDir)\$(TargetFileName)&quot;" />
     <Copy SourceFiles="$(SolutionDir)..\third_party\opencv-core\opencv-build\install\x64\vc17\bin\opencv_world4140.dll" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- 步骤 2：发布到干净目录（仅运行时文件，不含构建中间产物） -->
+  <PropertyGroup>
+    <PublishDir>$(SolutionDir)dist\</PublishDir>
+  </PropertyGroup>
+  <Target Name="Publish" AfterTargets="DeployDependencies" Inputs="$(OutDir)$(TargetFileName)" Outputs="$(PublishDir)$(TargetFileName)">
+    <ItemGroup>
+      <_PublishFiles Include="$(OutDir)**\*" Exclude="$(OutDir)*.pdb;$(OutDir)*.obj;$(OutDir)*.ipdb;$(OutDir)*.iobj;$(OutDir)*.log;$(OutDir)*.lastbuildstate;$(OutDir)*.unsuccessfulbuild;$(OutDir)*.ilk;$(OutDir)*.res;$(OutDir)*.exp;$(OutDir)*.lib;$(OutDir)*.metagen;$(OutDir)*.Write;$(OutDir)*.read;$(OutDir)vc*.config" />
+    </ItemGroup>
+    <MakeDir Directories="$(PublishDir)" />
+    <Copy SourceFiles="@(_PublishFiles)" DestinationFiles="@(_PublishFiles->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Message Text="==========================================" Importance="High" />
+    <Message Text="发布完成: $(PublishDir)" Importance="High" />
+    <Message Text="==========================================" Importance="High" />
   </Target>
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">
     <Import Project="$(QtMsBuild)\qt.targets" />
