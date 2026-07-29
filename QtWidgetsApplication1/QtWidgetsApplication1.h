@@ -40,6 +40,7 @@ private slots:
 
     void onDeviceLost();
     void onStreamError(const QString& error);
+    void onInstallDriver();
     void updateStats();
     void updateDetectorTemperature();
 

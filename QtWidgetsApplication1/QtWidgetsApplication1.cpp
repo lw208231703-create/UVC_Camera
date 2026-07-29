@@ -24,9 +24,13 @@
 #include <QApplication>
 #include <QMetaType>
 #include <QMutexLocker>
+#include <QProgressDialog>
+#include <QFileInfo>
+#include <QRegularExpression>
 #include <libuvc/libuvc.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
+#include <libwdi.h>
 
 // 注册 ProcessedFrame 为 Qt 元类型，支持跨线程 QueuedConnection
 Q_DECLARE_METATYPE(ProcessedFrame)
@@ -304,11 +308,19 @@ void QtWidgetsApplication1::onOpenDevice() {
     m_camera->setCameraIndex(cameraIdx);
 
     if (!m_camera->open()) {
-        QString msg = TR("Failed to open camera device.\n\n%1"
-                         "\n\nOn Windows, libuvc requires a WinUSB/libusbK driver.\n"
-                         "Use Zadig (https://zadig.akeo.ie) to replace the driver.")
+        QString msg = TR("摄像头打开失败\n\n%1"
+                         "\n\n当前设备未安装 WinUSB 驱动，libuvc 需要 WinUSB 驱动才能工作。\n"
+                         "请点击「安装驱动」按钮自动安装 WinUSB 驱动。")
                           .arg(m_camera->lastError());
-        QMessageBox::critical(this, TR("Error"), msg);
+        auto* box = new QMessageBox(QMessageBox::Critical, TR("驱动错误"), msg, QMessageBox::NoButton, this);
+        auto* installBtn = box->addButton(TR("安装驱动"), QMessageBox::AcceptRole);
+        box->addButton(TR("取消"), QMessageBox::RejectRole);
+        box->exec();
+
+        if (box->clickedButton() == installBtn) {
+            onInstallDriver();
+        }
+        delete box;
         m_camera.reset();
         return;
     }
@@ -677,6 +689,106 @@ void QtWidgetsApplication1::onDeviceLost() {
 
 void QtWidgetsApplication1::onStreamError(const QString& error) {
     LOG_ERROR(QString("Stream error: %1").arg(error));
+}
+
+void QtWidgetsApplication1::onInstallDriver() {
+    int idx = m_controlPanel->deviceCombo()->currentIndex();
+    if (idx < 0) return;
+
+    QString text = m_controlPanel->deviceCombo()->currentText();
+    QRegularExpression re(R"(\[([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\])");
+    auto match = re.match(text);
+    if (!match.hasMatch()) {
+        QMessageBox::information(this, TR("提示"), TR("无法解析设备 VID/PID"));
+        return;
+    }
+
+    uint16_t vid = match.captured(1).toUShort(nullptr, 16);
+    uint16_t pid = match.captured(2).toUShort(nullptr, 16);
+
+    QProgressDialog progress(TR("正在安装 WinUSB 驱动..."), TR("取消"), 0, 0, this);
+    progress.setWindowModality(Qt::WindowModal);
+    progress.show();
+
+    struct wdi_device_info *list = NULL, *dev;
+    struct wdi_options_create_list cl;
+    memset(&cl, 0, sizeof(cl));
+    cl.list_all = TRUE;
+
+    int r = wdi_create_list(&list, &cl);
+    if (r != 0) {
+        progress.close();
+        QMessageBox::warning(this, TR("错误"),
+            TR("无法枚举 USB 设备: %1").arg(wdi_strerror(r)));
+        return;
+    }
+
+    int installed = 0, total = 0;
+    for (dev = list; dev; dev = dev->next) {
+        if (dev->vid != vid || dev->pid != pid) continue;
+        total++;
+    }
+    if (total == 0) {
+        wdi_destroy_list(list);
+        progress.close();
+        QMessageBox::information(this, TR("提示"),
+            TR("未找到匹配的 USB 设备，请确认设备已连接。"));
+        return;
+    }
+
+    for (dev = list; dev; dev = dev->next) {
+        if (dev->vid != vid || dev->pid != pid) continue;
+
+        QString miInfo = dev->is_composite
+            ? QString(" MI%1").arg(dev->mi) : QString();
+        progress.setLabelText(
+            TR("正在安装驱动: %1%2").arg(dev->desc, miInfo));
+
+        char inf_name[MAX_PATH];
+        snprintf(inf_name, sizeof(inf_name), "ft602q_%04X_%04X%s.inf",
+            vid, pid, dev->is_composite ? QString("_MI%1").arg(dev->mi).toLocal8Bit().data() : "");
+
+        struct wdi_options_prepare_driver pd;
+        memset(&pd, 0, sizeof(pd));
+        pd.driver_type = WDI_WINUSB;
+        pd.vendor_name = (char*)"FTDI";
+
+        char tmp_dir[MAX_PATH + 1] = { 0 };
+        GetTempPathA(MAX_PATH, tmp_dir);
+        r = wdi_prepare_driver(dev, tmp_dir, inf_name, &pd);
+        if (r != 0) {
+            LOG_ERROR(QString("wdi_prepare_driver failed: %1").arg(wdi_strerror(r)));
+            continue;
+        }
+
+        struct wdi_options_install_driver id;
+        memset(&id, 0, sizeof(id));
+        id.hWnd = (HWND)winId();
+        id.pending_install_timeout = 30000;
+
+        r = wdi_install_driver(dev, tmp_dir, inf_name, &id);
+        if (r == 0) {
+            installed++;
+            LOG_INFO(QString("Driver installed for %1%2").arg(dev->desc, miInfo));
+        } else if (r == WDI_ERROR_USER_CANCEL) {
+            break;
+        } else {
+            LOG_ERROR(QString("wdi_install_driver failed: %1").arg(wdi_strerror(r)));
+        }
+    }
+
+    wdi_destroy_list(list);
+    progress.close();
+
+    if (installed > 0) {
+        QMessageBox::information(this, TR("完成"),
+            TR("成功为 %1 个接口安装 WinUSB 驱动。\n"
+               "请重新插拔设备后启动程序。").arg(installed));
+    } else {
+        QMessageBox::warning(this, TR("失败"),
+            TR("驱动安装失败，请尝试以管理员身份运行本程序，\n"
+               "或使用 Zadig 工具手动安装驱动。"));
+    }
 }
 
 // ── Stats update ──
