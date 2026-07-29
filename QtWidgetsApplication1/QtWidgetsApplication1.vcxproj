@@ -48,8 +48,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\third_party\win_compat;$(SolutionDir)..\third_party\opencv-core\opencv-build\install\include;$(SolutionDir)..\third_party\libusb\libusb;$(SolutionDir)..\third_party\libusb\msvc;$(SolutionDir)..\third_party\libuvc\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\third_party\win_compat;$(SolutionDir)..\third_party\opencv-core\opencv-build\install\include;$(SolutionDir)..\third_party\libusb\libusb;$(SolutionDir)..\third_party\libusb\msvc;$(SolutionDir)..\third_party\libuvc\include;$(SolutionDir)..\third_party\libwdi\libwdi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QT_NO_DEPRECATED_WARNINGS;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;LIBUSB_WINDOWS_HOTPLUG;LIBUVC_NUM_TRANSFER_BUFS=10;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ForcedIncludeFiles>winsock2.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <!-- 10 buffers × 10MB = 100MB (实测最优配置)
            30 buffers 实测丢帧率从 4% 恶化到 27% (WinUSB/XHCI 过载)
            1MB transfer size 实测丢帧率从 4% 恶化到 10% (更多 transfer 边界)
@@ -60,8 +61,8 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\third_party\opencv-core\opencv-build\install\x64\vc17\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opencv_world4140.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\third_party\opencv-core\opencv-build\install\x64\vc17\lib;$(SolutionDir)..\third_party\libwdi\x64\Release\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opencv_world4140.lib;libwdi.lib;setupapi.lib;newdev.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -180,10 +181,11 @@
     <Exec Condition="!Exists('$(SolutionDir)..\third_party\libusb\libusb\version_describe.h')" Command="echo /* Auto-generated */ &gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #ifndef LIBUSB_DESCRIBE &gt;&gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #define LIBUSB_DESCRIBE &quot;custom-build&quot; &gt;&gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot; &amp;&amp; echo #endif &gt;&gt; &quot;$(SolutionDir)..\third_party\libusb\libusb\version_describe.h&quot;" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <!-- 步骤 1：Qt 部署 + OpenCV DLL -->
+  <!-- 步骤 1：Qt 部署 + OpenCV DLL + libwdi installer -->
   <Target Name="DeployDependencies" AfterTargets="Build">
     <Exec Command="&quot;$(QtInstallDir)\bin\windeployqt6.exe&quot; --release &quot;$(OutDir)\$(TargetFileName)&quot;" />
     <Copy SourceFiles="$(SolutionDir)..\third_party\opencv-core\opencv-build\install\x64\vc17\bin\opencv_world4140.dll" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(SolutionDir)..\third_party\libwdi\x64\Release\helper\installer_x64.exe" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>
 
   <!-- 步骤 2：发布到干净目录（仅运行时文件，不含构建中间产物） -->
