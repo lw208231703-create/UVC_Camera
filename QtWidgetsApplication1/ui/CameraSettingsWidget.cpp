@@ -4,6 +4,7 @@
 #include "hal/ParameterWorker.h"
 #include "infra/UiStrings.h"
 #include "infra/LogManager.h"
+#include <QThread>
 #include <QMessageBox>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -339,9 +340,10 @@ void CameraSettingsWidget::refreshAll() {
     uint16_t u16;
     if (m_ctrl->getGain(u16)) { m_gainEdit->setText(QString::number(u16)); }
 
-    // 其余参数通过 ParameterWorker 异步读取
+    // 其余参数通过 ParameterWorker 异步读取（先等 50ms 让传感器稳定）
     if (m_paramWorker) {
         QMetaObject::invokeMethod(m_paramWorker, [this]() {
+            QThread::msleep(2);
             m_paramWorker->readAll();
         }, Qt::QueuedConnection);
     }

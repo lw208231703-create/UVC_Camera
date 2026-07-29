@@ -1,4 +1,5 @@
 #include "ParameterWorker.h"
+#include <QThread>
 #include <libusb.h>
 #include <cmath>
 
@@ -129,6 +130,7 @@ void ParameterWorker::readExposure() {
 
 void ParameterWorker::readAll() {
     if (!m_handle) return;
+    auto ms = []() { QThread::msleep(2); };
 
     auto read2 = [&](uint16_t addr) -> uint16_t {
         uint8_t buf[2] = {};
@@ -137,32 +139,28 @@ void ParameterWorker::readAll() {
         return (r >= 2) ? (uint16_t)(buf[0] | (buf[1] << 8)) : 0;
     };
 
-    uint16_t fps = read2(0x10);
-
-    uint8_t fmtBuf[16] = {};
-    int ret = libusb_control_transfer(m_handle, 0xC0, 0x05, 0x50,
-        (16 << 8) | m_i2cAddr, fmtBuf, 16, 1000);
-    uint8_t pixelFmt = (ret == 16) ? fmtBuf[0] : 0;
-
-    uint16_t roiXVal = read2(0x47);
-    int roiX = (int)roiXVal - 112;
-    if (roiX < 0) roiX = 0;
-
-    uint16_t roiYVal = read2(0x48);
-    int roiY = (int)roiYVal - 4;
-    if (roiY < 0) roiY = 0;
-
-    uint8_t aeBuf[16] = {};
-    ret = libusb_control_transfer(m_handle, 0xC0, 0x05, 0x40,
-        (16 << 8) | m_i2cAddr, aeBuf, 16, 1000);
-    uint8_t aeMode = (ret == 16) ? aeBuf[0] : 0;
-
-    uint8_t expHBuf[2] = {};
-    ret = libusb_control_transfer(m_handle, 0xC0, 0x05, 0x42,
+    ms(); uint16_t fps = read2(0x10);
+    ms(); uint16_t roiXVal = read2(0x47);
+    ms(); uint16_t roiYVal = read2(0x48);
+    ms(); uint8_t expHBuf[2] = {};
+    int ret = libusb_control_transfer(m_handle, 0xC0, 0x05, 0x42,
         (2 << 8) | m_i2cAddr, expHBuf, 2, 1000);
-    uint8_t expLBuf[2] = {};
+    ms(); uint8_t expLBuf[2] = {};
     ret = libusb_control_transfer(m_handle, 0xC0, 0x05, 0x43,
         (2 << 8) | m_i2cAddr, expLBuf, 2, 1000);
+    ms(); uint8_t fmtBuf[16] = {};
+    ret = libusb_control_transfer(m_handle, 0xC0, 0x05, 0x50,
+        (16 << 8) | m_i2cAddr, fmtBuf, 16, 1000);
+    ms(); uint8_t aeBuf[16] = {};
+    ret = libusb_control_transfer(m_handle, 0xC0, 0x05, 0x40,
+        (16 << 8) | m_i2cAddr, aeBuf, 16, 1000);
+
+    int roiX = (int)roiXVal - 112;
+    if (roiX < 0) roiX = 0;
+    int roiY = (int)roiYVal - 4;
+    if (roiY < 0) roiY = 0;
+    uint8_t pixelFmt = (ret == 16) ? fmtBuf[0] : 0;
+    uint8_t aeMode = (ret == 16) ? aeBuf[0] : 0;
     uint32_t expLines = 0;
     if (ret >= 2)
         expLines = ((uint32_t)(expHBuf[0] | (expHBuf[1] << 8)) << 16)

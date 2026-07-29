@@ -460,6 +460,24 @@ void QtWidgetsApplication1::onOpenDevice() {
             pan->i2cResultLabel()->setText(
                 QString("写 [0x%1] %2 字节 OK").arg(regAddr, 4, 16, QChar('0')).arg(ret));
         });
+
+        // 保存配置 / 恢复默认（通过 ParameterWorker 在独立线程中执行）
+        disconnect(pan->saveConfigBtn(), nullptr, nullptr, nullptr);
+        disconnect(pan->restoreDefaultBtn(), nullptr, nullptr, nullptr);
+
+        connect(pan->saveConfigBtn(), &QPushButton::clicked, this, [this]() {
+            if (!m_paramWorker) return;
+            QByteArray d(1, 0x01);
+            auto* w = m_paramWorker;
+            QMetaObject::invokeMethod(w, [w, d]() { w->writeReg(0x49, d); }, Qt::QueuedConnection);
+        });
+
+        connect(pan->restoreDefaultBtn(), &QPushButton::clicked, this, [this]() {
+            if (!m_paramWorker) return;
+            QByteArray d(1, 0x01);
+            auto* w = m_paramWorker;
+            QMetaObject::invokeMethod(w, [w, d]() { w->writeReg(0x4A, d); }, Qt::QueuedConnection);
+        });
     }
 
     m_deviceOpen = true;

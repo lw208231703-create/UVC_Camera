@@ -127,6 +127,23 @@ ControlPanel::ControlPanel(QWidget* parent)
         mainLayout->addWidget(m_cameraSettings);
     }
 
+    // ── 设备管理 ──
+    {
+        auto* grp = makeGroup(TR("设备管理"), new QVBoxLayout);
+        auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
+
+        auto* btnLayout = new QHBoxLayout;
+        m_saveConfigBtn = new QPushButton(TR("保存配置"));
+        m_saveConfigBtn->setMinimumHeight(28);
+        m_restoreDefaultBtn = new QPushButton(TR("恢复默认"));
+        m_restoreDefaultBtn->setMinimumHeight(28);
+        btnLayout->addWidget(m_saveConfigBtn);
+        btnLayout->addWidget(m_restoreDefaultBtn);
+        lay->addLayout(btnLayout);
+
+        mainLayout->addWidget(grp);
+    }
+
     // ── I2C 寄存器调试 ──
     {
         m_i2cGroup = makeGroup(TR("I2C 寄存器调试 (FT602直通)"), new QVBoxLayout);

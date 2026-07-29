@@ -42,7 +42,16 @@ private:
 
 Q_DECLARE_METATYPE(LogManager::Entry)
 
+// 取消注释下一行可完全关闭日志输出（编译时生效）
+#define UVC_DISABLE_LOG
+#if defined(UVC_DISABLE_LOG)
+#define LOG_DEBUG(msg)    ((void)0)
+#define LOG_INFO(msg)     ((void)0)
+#define LOG_WARNING(msg)  ((void)0)
+#define LOG_ERROR(msg)    ((void)0)
+#else
 #define LOG_DEBUG(msg)    LogManager::instance().debug(msg)
 #define LOG_INFO(msg)     LogManager::instance().info(msg)
 #define LOG_WARNING(msg)  LogManager::instance().warning(msg)
 #define LOG_ERROR(msg)    LogManager::instance().error(msg)
+#endif

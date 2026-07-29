@@ -1,7 +1,7 @@
 #pragma once
 
 // I2C调试 & 日志面板开关: 设为 1 开启, 0 隐藏
-#define UVC_DEBUG_PANELS 1
+#define UVC_DEBUG_PANELS 0
 
 #include <QWidget>
 #include <QScrollArea>
@@ -47,6 +47,10 @@ public:
     // 16-bit shift selector
     BitShiftSelector* bitShiftSlider() { return m_bitShiftSelector; }
 
+    // Device management
+    QPushButton* saveConfigBtn()    { return m_saveConfigBtn; }
+    QPushButton* restoreDefaultBtn(){ return m_restoreDefaultBtn; }
+
     // I2C register debug
     QLineEdit*   i2cAddrEdit()   { return m_i2cAddrEdit; }
     QLineEdit*   i2cRegEdit()    { return m_i2cRegEdit; }
@@ -89,6 +93,10 @@ private:
     // Bit-depth shift
     BitShiftSelector* m_bitShiftSelector;
     QLabel*  m_bitShiftLabel;
+
+    // Device management
+    QPushButton* m_saveConfigBtn = nullptr;
+    QPushButton* m_restoreDefaultBtn = nullptr;
 
     // I2C register debug
     QLineEdit*   m_i2cAddrEdit = nullptr;
