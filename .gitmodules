@@ -18,3 +18,9 @@
 	path = third_party/libwdi
 	url = https://github.com/lw208231703-create/libwdi.git
 	branch = master
+[submodule "third_party/libusbK-3.1.0.0-bin"]
+	path = third_party/libusbK-3.1.0.0-bin
+	url = https://github.com/lw208231703-create/libusbK-3.1.0.0-bin.git
+[submodule "third_party/libusb-win32-bin-1.4.0.2"]
+	path = third_party/libusb-win32-bin-1.4.0.2
+	url = https://github.com/lw208231703-create/libusb-win32-bin-1.4.0.2.git
