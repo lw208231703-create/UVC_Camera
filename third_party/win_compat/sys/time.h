@@ -3,13 +3,14 @@
 
 #ifdef _WIN32
 
+#include <time.h>
+
 // Windows: timeval may already be defined by winsock2.h or winsock.h
 // (both included via windows.h → libusb, etc.).  Guard on both the
 // standard _TIMEVAL_DEFINED macro and any check for the struct itself.
 #ifndef _TIMEVAL_DEFINED
 #ifndef _WINSOCK2API_
 #ifndef _WINSOCKAPI_
-#include <time.h>
 struct timeval {
     long tv_sec;
     long tv_usec;
