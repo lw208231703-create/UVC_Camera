@@ -68,9 +68,14 @@ QtWidgetsApplication1::QtWidgetsApplication1(QWidget* parent)
     m_burstWorker->moveToThread(m_burstThread);
     connect(m_burstThread, &QThread::finished, m_burstWorker, &QObject::deleteLater);
     connect(m_worker, &ProcessingWorker::frameDisplayReady,
-            this, [this](QImage img, ProcessedFrame) {
-        QMetaObject::invokeMethod(m_burstWorker, [w = m_burstWorker, img = std::move(img)]() {
-            w->onFrame(std::move(img));
+            this, [this](QImage, ProcessedFrame parsed) {
+        if (!parsed.valid || parsed.data.empty()) return;
+        QByteArray data((const char*)parsed.data.data(), (int)parsed.data.size());
+        int cv_type = parsed.cv_type;
+        int w = (int)parsed.width;
+        int h = (int)parsed.height;
+        QMetaObject::invokeMethod(m_burstWorker, [wk = m_burstWorker, cv_type, width = w, height = h, data = std::move(data)]() {
+            wk->onRawFrame(cv_type, width, height, data);
         }, Qt::QueuedConnection);
     });
     connect(m_burstWorker, &BurstWorker::burstFinished, this, [this](int saved) {
@@ -708,8 +713,9 @@ void QtWidgetsApplication1::onBurst() {
     QString dir = m_controlPanel->burstPathEdit()->text();
     int count = m_controlPanel->burstCountEdit()->text().toInt();
     QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss");
-    QMetaObject::invokeMethod(m_burstWorker, [this, dir, count, ts]() {
-        m_burstWorker->startBurst(dir, count, ts);
+    bool denoise = m_denoiseEnabled;
+    QMetaObject::invokeMethod(m_burstWorker, [this, dir, count, ts, denoise]() {
+        m_burstWorker->startBurst(dir, count, ts, denoise);
     }, Qt::QueuedConnection);
     LOG_INFO(QString("开始连拍: %1 张到 %2").arg(count).arg(dir));
 }
