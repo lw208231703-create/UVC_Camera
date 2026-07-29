@@ -5,6 +5,25 @@
 #include <QFormLayout>
 #include <QScrollArea>
 #include <QHBoxLayout>
+#include <QWheelEvent>
+#include <QDir>
+#include <QIntValidator>
+
+// 过滤鼠标滚轮，防止下拉框被误滚动
+class WheelFilter : public QObject {
+public:
+    using QObject::QObject;
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override {
+        if (event->type() == QEvent::Wheel) return true;
+        return QObject::eventFilter(obj, event);
+    }
+};
+static WheelFilter* s_wheelFilter = nullptr;
+static void disableWheel(QComboBox* cb) {
+    if (!s_wheelFilter) s_wheelFilter = new WheelFilter;
+    cb->installEventFilter(s_wheelFilter);
+}
 
 ControlPanel::ControlPanel(QWidget* parent)
     : QWidget(parent)
@@ -28,6 +47,7 @@ ControlPanel::ControlPanel(QWidget* parent)
         m_deviceCombo = new QComboBox;
         m_deviceCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         m_deviceCombo->setMinimumHeight(28);
+        disableWheel(m_deviceCombo);
 
         auto* refreshBtn = new QPushButton(TR("Refresh"));
         refreshBtn->setFixedWidth(70);
@@ -56,11 +76,8 @@ ControlPanel::ControlPanel(QWidget* parent)
     {
         m_formatCombo = new QComboBox;
         m_formatCombo->setEnabled(false);
+        disableWheel(m_formatCombo);
         m_formatCombo->addItems({"Y16", "Y800", "YUYV", "MJPEG", "Custom 12-bit"});
-
-        m_resolutionCombo = new QComboBox;
-        m_resolutionCombo->setEnabled(false);
-        m_resolutionCombo->addItem(TR("-- Select --"));
 
         m_applyBtn = new QPushButton(TR("Apply & Start Streaming"));
         m_applyBtn->setObjectName("applyBtn");
@@ -68,7 +85,6 @@ ControlPanel::ControlPanel(QWidget* parent)
 
         auto* fmtLayout = new QFormLayout;
         fmtLayout->addRow(TR("Format:"), m_formatCombo);
-        fmtLayout->addRow(TR("Resolution:"), m_resolutionCombo);
 
         auto* grpLayout = new QVBoxLayout;
         grpLayout->addLayout(fmtLayout);
@@ -84,12 +100,46 @@ ControlPanel::ControlPanel(QWidget* parent)
         m_snapshotBtn->setMinimumHeight(40);
         m_snapshotBtn->setEnabled(false);
 
+        m_burstBtn = new QPushButton(TR("连拍"));
+        m_burstBtn->setObjectName("captureBtn");
+        m_burstBtn->setMinimumHeight(40);
+        m_burstBtn->setEnabled(false);
+
         m_denoiseChk = new QCheckBox(TR("降噪"));
         m_denoiseChk->setChecked(true);
         m_denoiseChk->setStyleSheet("color:#CCCCCC; font-size:12px;");
 
         auto* capLayout = new QVBoxLayout;
         capLayout->addWidget(m_snapshotBtn);
+        capLayout->addWidget(m_burstBtn);
+
+        auto* burstRow = new QHBoxLayout;
+        // 左边：路径
+        m_burstPathEdit = new QLineEdit;
+        m_burstPathEdit->setText(QDir::currentPath());
+        m_burstPathEdit->setStyleSheet(
+            "QLineEdit { background:#3C3C3C; border:1px solid #3E3E42; border-radius:2px;"
+            "  padding:2px 6px; color:#CCCCCC; font-size:11px; }");
+        m_burstBrowseBtn = new QPushButton(TR("..."));
+        m_burstBrowseBtn->setFixedWidth(28);
+        m_burstBrowseBtn->setFixedHeight(22);
+        auto* left = new QHBoxLayout;
+        left->addWidget(m_burstPathEdit, 1);
+        left->addWidget(m_burstBrowseBtn);
+        // 右边：张数
+        m_burstCountEdit = new QLineEdit("10");
+        m_burstCountEdit->setAlignment(Qt::AlignLeft);
+        m_burstCountEdit->setValidator(new QIntValidator(1, 9999, m_burstCountEdit));
+        m_burstCountEdit->setStyleSheet(
+            "QLineEdit { background:#3C3C3C; border:1px solid #3E3E42; border-radius:2px;"
+            "  padding:2px 4px; color:#CCCCCC; font-size:11px; }");
+        auto* right = new QHBoxLayout;
+        right->addWidget(new QLabel(TR("张数")));
+        right->addWidget(m_burstCountEdit, 1);
+        burstRow->addLayout(left, 1);
+        burstRow->addLayout(right, 1);
+        capLayout->addLayout(burstRow);
+
         capLayout->addWidget(m_denoiseChk);
 
         mainLayout->addWidget(makeGroup(TR("Capture"), capLayout));
@@ -103,9 +153,9 @@ ControlPanel::ControlPanel(QWidget* parent)
         auto* row = new QHBoxLayout;
         m_bitShiftSelector = new BitShiftSelector;
         m_bitShiftSelector->setRange(0, 8);
-        m_bitShiftSelector->setValue(8);
+        m_bitShiftSelector->setValue(4);
 
-        m_bitShiftLabel = new QLabel("bits [15:8]");
+        m_bitShiftLabel = new QLabel("bits [11:4]");
         m_bitShiftLabel->setStyleSheet("color:#26C0A6; font-size:12px; min-width:80px;");
 
         connect(m_bitShiftSelector, &BitShiftSelector::valueChanged, this, [this](int val) {
@@ -123,7 +173,6 @@ ControlPanel::ControlPanel(QWidget* parent)
     // ── Camera Settings ──
     {
         m_cameraSettings = new CameraSettingsWidget;
-        m_cameraSettings->setMaximumHeight(350);
         mainLayout->addWidget(m_cameraSettings);
     }
 
@@ -161,7 +210,7 @@ ControlPanel::ControlPanel(QWidget* parent)
         };
         auto styleHex = [](QLineEdit* e, int w = 62) {
             e->setFixedWidth(w);
-            e->setAlignment(Qt::AlignRight);
+            e->setAlignment(Qt::AlignLeft);
             e->setStyleSheet(
                 "QLineEdit { background:#3C3C3C; border:1px solid #3E3E42; border-radius:2px;"
                 "  padding:2px 6px; color:#CCCCCC; font-size:12px; font-family:Consolas,monospace; }"
@@ -185,7 +234,7 @@ ControlPanel::ControlPanel(QWidget* parent)
         m_i2cLenEdit = new QLineEdit("1");
         m_i2cLenEdit->setPlaceholderText("bytes");
         m_i2cLenEdit->setFixedWidth(44);
-        m_i2cLenEdit->setAlignment(Qt::AlignRight);
+        m_i2cLenEdit->setAlignment(Qt::AlignLeft);
         m_i2cLenEdit->setStyleSheet(
             "QLineEdit { background:#3C3C3C; border:1px solid #3E3E42; border-radius:2px;"
             "  padding:2px 6px; color:#CCCCCC; font-size:12px; }"
@@ -294,7 +343,7 @@ QGroupBox* ControlPanel::makeGroup(const QString& title, QLayout* layout) {
 void ControlPanel::setDeviceOpen(bool open) {
     m_deviceCombo->setEnabled(!open);
     m_formatCombo->setEnabled(open);
-    m_resolutionCombo->setEnabled(open);
+
     m_applyBtn->setEnabled(open);
 
     m_openBtn->setText(open ? TR("Close Camera") : TR("Open Camera"));
@@ -305,10 +354,11 @@ void ControlPanel::setDeviceOpen(bool open) {
 
 void ControlPanel::setStreaming(bool streaming) {
     m_formatCombo->setEnabled(!streaming);
-    m_resolutionCombo->setEnabled(!streaming);
+
     m_openBtn->setEnabled(!streaming);
 
     m_snapshotBtn->setEnabled(streaming);
+    if (m_burstBtn) m_burstBtn->setEnabled(streaming);
 
     m_applyBtn->setText(streaming ? TR("Stop Streaming") : TR("Apply & Start Streaming"));
     m_applyBtn->setStyleSheet(streaming

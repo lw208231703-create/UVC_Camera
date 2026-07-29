@@ -31,11 +31,15 @@ public:
 
     // Format group
     QComboBox* formatCombo()   { return m_formatCombo; }
-    QComboBox* resolutionCombo(){ return m_resolutionCombo; }
+
     QPushButton* applyBtn()    { return m_applyBtn; }
 
     // Capture group
     QPushButton* snapshotBtn() { return m_snapshotBtn; }
+    QPushButton* burstBtn()    { return m_burstBtn; }
+    QLineEdit*   burstPathEdit()   { return m_burstPathEdit; }
+    QPushButton* burstBrowseBtn() { return m_burstBrowseBtn; }
+    QLineEdit*   burstCountEdit() { return m_burstCountEdit; }
     QCheckBox*   denoiseChk()  { return m_denoiseChk; }
 
     // Log area
@@ -77,11 +81,15 @@ private:
 
     // Format
     QComboBox*  m_formatCombo;
-    QComboBox*  m_resolutionCombo;
+
     QPushButton* m_applyBtn;
 
     // Capture
     QPushButton* m_snapshotBtn;
+    QPushButton* m_burstBtn = nullptr;
+    QLineEdit*   m_burstPathEdit = nullptr;
+    QPushButton* m_burstBrowseBtn = nullptr;
+    QLineEdit*   m_burstCountEdit = nullptr;
     QCheckBox*   m_denoiseChk;
 
     // Log

@@ -75,6 +75,7 @@
     <QtMoc Include="ui\BitShiftSelector.h" />
     <QtMoc Include="ProcessingWorker.h" />
     <QtMoc Include="hal\ParameterWorker.h" />
+    <QtMoc Include="hal\BurstWorker.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\CameraTypes.h" />
@@ -105,6 +106,7 @@
     <ClCompile Include="protocol\CustomUvcProtocol.cpp" />
     <ClCompile Include="ProcessingWorker.cpp" />
     <ClCompile Include="hal\ParameterWorker.cpp" />
+    <ClCompile Include="hal\BurstWorker.cpp" />
   </ItemGroup>
   <!-- libusb C sources (Windows) -->
   <ItemGroup>

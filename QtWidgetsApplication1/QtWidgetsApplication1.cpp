@@ -31,6 +31,8 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
 #include <libwdi.h>
+#include "hal/BurstWorker.h"
+#include <QSpinBox>
 
 // 注册 ProcessedFrame 为 Qt 元类型，支持跨线程 QueuedConnection
 Q_DECLARE_METATYPE(ProcessedFrame)
@@ -59,6 +61,27 @@ QtWidgetsApplication1::QtWidgetsApplication1(QWidget* parent)
             Qt::DirectConnection);
 
     m_workerThread->start();
+
+    // ── 连拍 worker（独立线程）──
+    m_burstThread = new QThread(this);
+    m_burstWorker = new BurstWorker;
+    m_burstWorker->moveToThread(m_burstThread);
+    connect(m_burstThread, &QThread::finished, m_burstWorker, &QObject::deleteLater);
+    connect(m_worker, &ProcessingWorker::frameDisplayReady,
+            this, [this](QImage img, ProcessedFrame) {
+        QMetaObject::invokeMethod(m_burstWorker, [w = m_burstWorker, img = std::move(img)]() {
+            w->onFrame(std::move(img));
+        }, Qt::QueuedConnection);
+    });
+    connect(m_burstWorker, &BurstWorker::burstFinished, this, [this](int saved) {
+        LOG_INFO(QString("连拍完成，保存 %1 帧").arg(saved));
+    });
+    // 连拍按钮
+    connect(m_controlPanel->burstBtn(), &QPushButton::clicked,
+            this, &QtWidgetsApplication1::onBurst);
+    connect(m_controlPanel->burstBrowseBtn(), &QPushButton::clicked,
+            this, &QtWidgetsApplication1::onBurstBrowse);
+    m_burstThread->start();
 
     // Init libuvc context
     if (!DeviceEnumerator::instance().initialize()) {
@@ -96,6 +119,14 @@ QtWidgetsApplication1::~QtWidgetsApplication1() {
         m_paramThread->wait(3000);
     }
     // m_paramWorker 由 m_paramThread 的 finished 信号 deleteLater
+
+    // 清理连拍线程
+    if (m_burstThread) {
+        if (m_burstWorker)
+            QMetaObject::invokeMethod(m_burstWorker, "abort", Qt::QueuedConnection);
+        m_burstThread->quit();
+        m_burstThread->wait(3000);
+    }
 
     // 清理帧处理线程
     if (m_workerThread) {
@@ -342,6 +373,8 @@ void QtWidgetsApplication1::onOpenDevice() {
 
     // 将协议处理器指针传给 worker 线程
     m_worker->setProtocol(m_protocol.get());
+    // 将默认 bit shift 值同步给 worker
+    m_worker->setBitShift(m_bitShift);
 
     // Init UVC controls
     m_uvcControls = std::make_unique<UvcControls>(m_camera->deviceHandle());
@@ -501,7 +534,6 @@ void QtWidgetsApplication1::onOpenDevice() {
 
 void QtWidgetsApplication1::populateFormats() {
     m_controlPanel->formatCombo()->clear();
-    m_controlPanel->resolutionCombo()->clear();
 
     if (!m_camera) return;
 
@@ -518,9 +550,9 @@ void QtWidgetsApplication1::populateFormats() {
             memcpy(fourcc, &fmt.fourcc, 4);
             QString fourccStr = QString::fromLatin1(fourcc, 4).trimmed();
             if (fourccStr == "Y16") fourccStr = "Y12";
-            QString label = QString("%1  %2x%3 @%4fps")
+            QString label = QString("%1  %2x%3")
                 .arg(fourccStr)
-                .arg(fmt.width).arg(fmt.height).arg(fmt.fps);
+                .arg(fmt.width).arg(fmt.height);
             m_controlPanel->formatCombo()->addItem(label);
         }
     }
@@ -663,6 +695,24 @@ void QtWidgetsApplication1::clearFramePipeline() {
 }
 
 // ── Snapshot (all formats → TIFF via cv::imwrite) ──
+
+void QtWidgetsApplication1::onBurstBrowse() {
+    QString dir = QFileDialog::getExistingDirectory(this, TR("选择连拍保存路径"),
+        m_controlPanel->burstPathEdit()->text());
+    if (!dir.isEmpty())
+        m_controlPanel->burstPathEdit()->setText(dir);
+}
+
+void QtWidgetsApplication1::onBurst() {
+    if (!m_burstWorker || !m_streaming) return;
+    QString dir = m_controlPanel->burstPathEdit()->text();
+    int count = m_controlPanel->burstCountEdit()->text().toInt();
+    QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss");
+    QMetaObject::invokeMethod(m_burstWorker, [this, dir, count, ts]() {
+        m_burstWorker->startBurst(dir, count, ts);
+    }, Qt::QueuedConnection);
+    LOG_INFO(QString("开始连拍: %1 张到 %2").arg(count).arg(dir));
+}
 
 void QtWidgetsApplication1::onSnapshot() {
     if (!m_lastFrame.valid) return;

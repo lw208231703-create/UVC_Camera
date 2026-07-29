@@ -130,7 +130,7 @@ void ParameterWorker::readExposure() {
 
 void ParameterWorker::readAll() {
     if (!m_handle) return;
-    auto ms = []() { QThread::msleep(2); };
+    auto ms = []() { QThread::msleep(3); };
 
     auto read2 = [&](uint16_t addr) -> uint16_t {
         uint8_t buf[2] = {};
@@ -154,17 +154,21 @@ void ParameterWorker::readAll() {
     ms(); uint8_t aeBuf[16] = {};
     ret = libusb_control_transfer(m_handle, 0xC0, 0x05, 0x40,
         (16 << 8) | m_i2cAddr, aeBuf, 16, 1000);
+    ms(); uint8_t triggerBuf[2] = {};
+    ret = libusb_control_transfer(m_handle, 0xC0, 0x05, 0x4B,
+        (2 << 8) | m_i2cAddr, triggerBuf, 2, 1000);
+    uint8_t triggerMode = (ret >= 1) ? triggerBuf[0] : 0;
 
     int roiX = (int)roiXVal - 112;
     if (roiX < 0) roiX = 0;
     int roiY = (int)roiYVal - 4;
     if (roiY < 0) roiY = 0;
-    uint8_t pixelFmt = (ret == 16) ? fmtBuf[0] : 0;
-    uint8_t aeMode = (ret == 16) ? aeBuf[0] : 0;
+    uint8_t pixelFmt = fmtBuf[0];
+    uint8_t aeMode = aeBuf[0];
     uint32_t expLines = 0;
     if (ret >= 2)
         expLines = ((uint32_t)(expHBuf[0] | (expHBuf[1] << 8)) << 16)
                  | (uint32_t)(expLBuf[0] | (expLBuf[1] << 8));
 
-    emit allReadReady(fps, pixelFmt, roiX, roiY, expLines, aeMode);
+    emit allReadReady(fps, pixelFmt, roiX, roiY, expLines, aeMode, triggerMode);
 }

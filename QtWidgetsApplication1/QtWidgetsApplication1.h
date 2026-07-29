@@ -9,7 +9,7 @@
 #include <QThread>
 #include <QImage>
 #include <QMutex>
-#include <atomic>
+#include <QFileDialog>
 #include <memory>
 #include <vector>
 
@@ -20,6 +20,7 @@ class IProtocolHandler;
 class ProcessingWorker;
 class FTI2cBridge;
 class ParameterWorker;
+class BurstWorker;
 
 #include "core/CameraTypes.h"
 
@@ -37,6 +38,8 @@ private slots:
     void onFrameProcessed(QImage img, ProcessedFrame parsed);
     void drainDisplay();
     void onSnapshot();
+    void onBurst();
+    void onBurstBrowse();
 
     void onDeviceLost();
     void onStreamError(const QString& error);
@@ -78,6 +81,10 @@ private:
     QThread*        m_paramThread = nullptr;
     ParameterWorker* m_paramWorker = nullptr;
 
+    // ── 连拍 worker（独立线程）──
+    QThread*     m_burstThread = nullptr;
+    BurstWorker* m_burstWorker = nullptr;
+
     // ── I2C 调试桥（直通，仅用于调试面板）──
     std::unique_ptr<FTI2cBridge> m_i2cBridge;
 
@@ -92,7 +99,7 @@ private:
     bool m_streaming = false;
 
     ProcessedFrame m_lastFrame;
-    int m_bitShift = 8;          // 16-bit display: bit shift (8=MSB, 0=LSB)
+    int m_bitShift = 4;          // 16-bit display: bit shift (4=MSB, 0=LSB)
     bool m_denoiseEnabled = true; // 降噪开关
 
     // ── 显示帧单槽位（worker → UI 合帧，防止主线程事件队列堆积帧拷贝）──

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QWidget>
-#include <QScrollArea>
 #include <QSlider>
 #include <QCheckBox>
 #include <QComboBox>
@@ -15,7 +14,7 @@ class UvcControls;
 class FTI2cBridge;
 class ParameterWorker;
 
-class CameraSettingsWidget : public QScrollArea {
+class CameraSettingsWidget : public QWidget {
     Q_OBJECT
 
 public:
@@ -43,7 +42,6 @@ private:
     UvcControls* m_ctrl = nullptr;
     FTI2cBridge* m_i2cBridge = nullptr;
     ParameterWorker* m_paramWorker = nullptr;
-    QWidget* m_content;
     bool m_updating = false;
 
     // ── Gain ──
@@ -58,6 +56,7 @@ private:
     QComboBox* m_pixelFormatCombo;
     QLineEdit* m_roiXEdit;
     QLineEdit* m_roiYEdit;
+    QComboBox* m_triggerModeCombo;
 
     // ── Exposure Timing Conversion ──
     bool m_timingValid = false;

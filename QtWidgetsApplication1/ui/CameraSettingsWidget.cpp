@@ -9,6 +9,22 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
+#include <QWheelEvent>
+
+class WheelFilter : public QObject {
+public:
+    using QObject::QObject;
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override {
+        if (event->type() == QEvent::Wheel) return true;
+        return QObject::eventFilter(obj, event);
+    }
+};
+static WheelFilter* s_wheelFilter = nullptr;
+static void disableWheel(QComboBox* cb) {
+    if (!s_wheelFilter) s_wheelFilter = new WheelFilter;
+    cb->installEventFilter(s_wheelFilter);
+}
 #include <QIntValidator>
 #include <QMetaObject>
 #include <QTimer>
@@ -16,10 +32,8 @@
 #include <cmath>
 
 CameraSettingsWidget::CameraSettingsWidget(QWidget* parent)
-    : QScrollArea(parent)
+    : QWidget(parent)
 {
-    setWidgetResizable(true);
-    setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setupUi();
 }
 
@@ -75,7 +89,7 @@ QWidget* CameraSettingsWidget::makeInputRow(const QString& name, QLineEdit*& edi
     nameLbl->setStyleSheet("color:#CCCCCC; font-size:12px;");
 
     edit = new QLineEdit(initialText);
-    edit->setAlignment(Qt::AlignRight);
+    edit->setAlignment(Qt::AlignLeft);
     edit->setStyleSheet(
         "QLineEdit { background:#3C3C3C; border:1px solid #3E3E42; border-radius:2px;"
         "  padding:2px 6px; color:#CCCCCC; font-size:12px; }"
@@ -101,6 +115,7 @@ QWidget* CameraSettingsWidget::makeComboRow(const QString& name, QComboBox*& com
     lbl->setFixedWidth(90);
     lbl->setStyleSheet("color:#CCCCCC; font-size:12px;");
     combo = new QComboBox;
+    disableWheel(combo);
     lay->addWidget(lbl);
     lay->addWidget(combo, 1);
     return w;
@@ -117,8 +132,7 @@ void CameraSettingsWidget::connectSlider(QSlider* slider, QLabel* label, double 
 }
 
 void CameraSettingsWidget::setupUi() {
-    m_content = new QWidget;
-    auto* main = new QVBoxLayout(m_content);
+    auto* main = new QVBoxLayout(this);
     main->setSpacing(6);
     main->setContentsMargins(0, 0, 0, 0);
 
@@ -253,16 +267,27 @@ void CameraSettingsWidget::setupUi() {
             m_roiYEdit->setText(QString::number(alignedY));
         });
 
+        lay->addWidget(makeComboRow(TR("触发模式"), m_triggerModeCombo));
+        m_triggerModeCombo->addItem(TR("固定帧频"), 0);
+        m_triggerModeCombo->addItem(TR("外触发"), 1);
+        connect(m_triggerModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+                [this](int idx) {
+            if (m_updating || !m_paramWorker) return;
+            uint8_t val = m_triggerModeCombo->itemData(idx).toUInt() ? 0x01 : 0x00;
+            QByteArray d(1, val);
+            auto* w = m_paramWorker;
+            QMetaObject::invokeMethod(w, [w, d]() { w->writeReg(0x4B, d); }, Qt::QueuedConnection);
+        });
+
         main->addWidget(grp);
     }
 
     main->addStretch();
-    setWidget(m_content);
 }
 
 void CameraSettingsWidget::setControls(UvcControls* ctrl) {
     m_ctrl = ctrl;
-    m_content->setEnabled(ctrl != nullptr);
+    setEnabled(ctrl != nullptr);
     if (ctrl) refreshAll();
 }
 
@@ -295,7 +320,7 @@ void CameraSettingsWidget::setParamWorker(ParameterWorker* worker) {
 
     connect(worker, &ParameterWorker::allReadReady, this, [this](
         uint16_t fps, uint8_t pixelFmt, int roiX, int roiY,
-        uint32_t exposureLines, uint8_t aeMode) {
+        uint32_t exposureLines, uint8_t aeMode, uint8_t triggerMode) {
         m_updating = true;
         m_fpsEdit->setText(QString::number(fps));
         for (int i = 0; i < m_pixelFormatCombo->count(); i++) {
@@ -308,6 +333,9 @@ void CameraSettingsWidget::setParamWorker(ParameterWorker* worker) {
         int mode = aeMode ? 2 : 1;
         for (int i = 0; i < m_aeModeCombo->count(); i++) {
             if (m_aeModeCombo->itemData(i).toUInt() == (uint)mode) { m_aeModeCombo->setCurrentIndex(i); break; }
+        }
+        for (int i = 0; i < m_triggerModeCombo->count(); i++) {
+            if (m_triggerModeCombo->itemData(i).toUInt() == triggerMode) { m_triggerModeCombo->setCurrentIndex(i); break; }
         }
         // 曝光: 行数 → μs
         if (m_timingValid) {
@@ -328,7 +356,7 @@ void CameraSettingsWidget::clearControls() {
     m_ctrl = nullptr;
     m_i2cBridge = nullptr;
     m_paramWorker = nullptr;
-    m_content->setEnabled(false);
+    setEnabled(false);
     m_timingValid = false;
 }
 
@@ -343,7 +371,7 @@ void CameraSettingsWidget::refreshAll() {
     // 其余参数通过 ParameterWorker 异步读取（先等 50ms 让传感器稳定）
     if (m_paramWorker) {
         QMetaObject::invokeMethod(m_paramWorker, [this]() {
-            QThread::msleep(2);
+            QThread::msleep(3);
             m_paramWorker->readAll();
         }, Qt::QueuedConnection);
     }
