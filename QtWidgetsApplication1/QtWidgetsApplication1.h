@@ -21,6 +21,7 @@ class ProcessingWorker;
 class FTI2cBridge;
 class ParameterWorker;
 class BurstWorker;
+class StatsWorker;
 
 #include "core/CameraTypes.h"
 
@@ -44,7 +45,7 @@ private slots:
     void onDeviceLost();
     void onStreamError(const QString& error);
     void onInstallDriver();
-    void updateStats();
+    bool isWinUsbDriverInstalled(uint16_t vid, uint16_t pid);
     void updateDetectorTemperature();
 
 private:
@@ -85,6 +86,10 @@ private:
     QThread*     m_burstThread = nullptr;
     BurstWorker* m_burstWorker = nullptr;
 
+    // ── 统计 worker（独立线程，滑动平均采样）──
+    QThread*     m_statsThread = nullptr;
+    StatsWorker* m_statsWorker = nullptr;
+
     // ── I2C 调试桥（直通，仅用于调试面板）──
     std::unique_ptr<FTI2cBridge> m_i2cBridge;
 
@@ -111,17 +116,11 @@ private:
     std::atomic<bool> m_displayDraining{false};
 
     // Stats
-    QTimer*         m_statsTimer;
     QTimer*         m_temperatureTimer;
     QElapsedTimer   m_statsElapsed;
     uint32_t        m_displayFrameCount = 0;
-    uint64_t        m_statsFrameCount  = 0;   // 显示帧数 (renderFrame 递增)
-    uint64_t        m_statsByteCount   = 0;   // 相机字节数
-    qint64          m_lastStatsSampleTime  = 0; // 上次采样时间 (ms)
-    uint64_t        m_lastStatsSampleFrames = 0;  // 上次采样显示帧数
-    uint64_t        m_lastStatsSampleBytes  = 0;  // 上次采样字节数
-    uint64_t        m_lastStatsSampleCamFrames = 0; // 上次采样相机帧数
-    int             m_statsTickCounter  = 0;
+    std::atomic<uint64_t> m_statsFrameCount{0};  // 显示帧数 (renderFrame 递增)
+    std::atomic<uint64_t> m_statsByteCount{0};   // 相机字节数
 
     // Snapshot counter
     int m_snapshotCounter = 0;

@@ -140,6 +140,7 @@ void ParameterWorker::readAll() {
     };
 
     ms(); uint16_t fps = read2(0x10);
+    ms(); uint16_t gain = read2(0x4C);
     ms(); uint16_t roiXVal = read2(0x47);
     ms(); uint16_t roiYVal = read2(0x48);
     ms(); uint8_t expHBuf[2] = {};
@@ -148,12 +149,12 @@ void ParameterWorker::readAll() {
     ms(); uint8_t expLBuf[2] = {};
     ret = libusb_control_transfer(m_handle, 0xC0, 0x05, 0x43,
         (2 << 8) | m_i2cAddr, expLBuf, 2, 1000);
-    ms(); uint8_t fmtBuf[16] = {};
+    ms(); uint8_t fmtBuf[1] = {};
     ret = libusb_control_transfer(m_handle, 0xC0, 0x05, 0x50,
-        (16 << 8) | m_i2cAddr, fmtBuf, 16, 1000);
-    ms(); uint8_t aeBuf[16] = {};
+        (1 << 8) | m_i2cAddr, fmtBuf, 1, 1000);
+    ms(); uint8_t aeBuf[1] = {};
     ret = libusb_control_transfer(m_handle, 0xC0, 0x05, 0x40,
-        (16 << 8) | m_i2cAddr, aeBuf, 16, 1000);
+        (1 << 8) | m_i2cAddr, aeBuf, 1, 1000);
     ms(); uint8_t triggerBuf[2] = {};
     ret = libusb_control_transfer(m_handle, 0xC0, 0x05, 0x4B,
         (2 << 8) | m_i2cAddr, triggerBuf, 2, 1000);
@@ -163,12 +164,12 @@ void ParameterWorker::readAll() {
     if (roiX < 0) roiX = 0;
     int roiY = (int)roiYVal - 4;
     if (roiY < 0) roiY = 0;
-    uint8_t pixelFmt = fmtBuf[0];
-    uint8_t aeMode = aeBuf[0];
+    uint8_t pixelFmt = (ret >= 1) ? fmtBuf[0] : 0;
+    uint8_t aeMode = (ret >= 1) ? aeBuf[0] : 0;
     uint32_t expLines = 0;
     if (ret >= 2)
         expLines = ((uint32_t)(expHBuf[0] | (expHBuf[1] << 8)) << 16)
                  | (uint32_t)(expLBuf[0] | (expLBuf[1] << 8));
 
-    emit allReadReady(fps, pixelFmt, roiX, roiY, expLines, aeMode, triggerMode);
+    emit allReadReady(fps, gain, pixelFmt, roiX, roiY, expLines, aeMode, triggerMode);
 }

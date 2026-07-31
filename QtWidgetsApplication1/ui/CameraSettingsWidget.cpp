@@ -142,13 +142,18 @@ void CameraSettingsWidget::setupUi() {
         auto* lay = qobject_cast<QVBoxLayout*>(grp->layout());
 
         lay->addWidget(makeInputRow(TR("Gain"), m_gainEdit, "0"));
-        m_gainEdit->setValidator(new QIntValidator(0, 255, m_gainEdit));
+        m_gainEdit->setValidator(new QIntValidator(0, 420, m_gainEdit));
         connect(m_gainEdit, &QLineEdit::editingFinished, this, [this]() {
-            if (m_updating || !m_ctrl) return;
+            if (m_updating || !m_paramWorker) return;
             bool ok;
             int val = m_gainEdit->text().toInt(&ok);
             if (!ok) return;
-            m_ctrl->setGain((uint16_t)val);
+            if (val < 0) val = 0;
+            if (val > 420) val = 420;
+            uint8_t data[2] = { (uint8_t)(val & 0xFF), (uint8_t)(val >> 8) };
+            QByteArray d((const char*)data, 2);
+            auto* w = m_paramWorker;
+            QMetaObject::invokeMethod(w, [w, d]() { w->writeReg(0x4C, d); }, Qt::QueuedConnection);
         });
 
         main->addWidget(grp);
@@ -185,10 +190,8 @@ void CameraSettingsWidget::setupUi() {
                 [this](int idx) {
             if (m_updating) return;
             if (auto* w = m_paramWorker) {
-                uint8_t data[16] = {};
-                if (m_aeModeCombo->itemData(idx).toUInt() == 2)
-                    data[0] = 0x01;
-                QByteArray d((const char*)data, 16);
+                uint8_t data[1] = { (uint8_t)(m_aeModeCombo->itemData(idx).toUInt() == 2 ? 0x01 : 0x00) };
+                QByteArray d((const char*)data, 1);
                 QMetaObject::invokeMethod(w, [w, d]() { w->writeReg(0x40, d); }, Qt::QueuedConnection);
             }
         });
@@ -221,9 +224,8 @@ void CameraSettingsWidget::setupUi() {
         connect(m_pixelFormatCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
                 [this](int idx) {
             if (m_updating || !m_paramWorker) return;
-            uint8_t data[16] = {};
-            data[0] = (uint8_t)m_pixelFormatCombo->itemData(idx).toUInt();
-            QByteArray fmtData((const char*)data, 16);
+            uint8_t data[1] = { (uint8_t)m_pixelFormatCombo->itemData(idx).toUInt() };
+            QByteArray fmtData((const char*)data, 1);
             uint8_t expHigh[2] = { 0x00, 0x00 };
             uint8_t expLow[2]  = { 0x02, 0x00 };
             QByteArray eh((const char*)expHigh, 2), el((const char*)expLow, 2);
@@ -319,10 +321,11 @@ void CameraSettingsWidget::setParamWorker(ParameterWorker* worker) {
     });
 
     connect(worker, &ParameterWorker::allReadReady, this, [this](
-        uint16_t fps, uint8_t pixelFmt, int roiX, int roiY,
+        uint16_t fps, uint16_t gain, uint8_t pixelFmt, int roiX, int roiY,
         uint32_t exposureLines, uint8_t aeMode, uint8_t triggerMode) {
         m_updating = true;
         m_fpsEdit->setText(QString::number(fps));
+        m_gainEdit->setText(QString::number(gain));
         for (int i = 0; i < m_pixelFormatCombo->count(); i++) {
             if (m_pixelFormatCombo->itemData(i).toUInt() == pixelFmt) {
                 m_pixelFormatCombo->setCurrentIndex(i); break;
@@ -364,11 +367,7 @@ void CameraSettingsWidget::refreshAll() {
     if (!m_ctrl || !m_ctrl->isValid()) return;
     m_updating = true;
 
-    // Gain — 通过 UVC 控制（已有 QThreadPool 异步）
-    uint16_t u16;
-    if (m_ctrl->getGain(u16)) { m_gainEdit->setText(QString::number(u16)); }
-
-    // 其余参数通过 ParameterWorker 异步读取（先等 50ms 让传感器稳定）
+    // 其余参数通过 ParameterWorker 异步读取（先等 3ms 让传感器稳定）
     if (m_paramWorker) {
         QMetaObject::invokeMethod(m_paramWorker, [this]() {
             QThread::msleep(3);

@@ -39,8 +39,8 @@ signals:
     void exposureWritten(uint64_t actualUs, bool ok);
     void exposureReadReady(uint32_t lineCount);
 
-    /// 全部参数就绪：fps, pixelFmt, roiX, roiY, exposureLines, aeMode, triggerMode
-    void allReadReady(uint16_t fps, uint8_t pixelFmt, int roiX, int roiY,
+    /// 全部参数就绪：fps, gain, pixelFmt, roiX, roiY, exposureLines, aeMode, triggerMode
+    void allReadReady(uint16_t fps, uint16_t gain, uint8_t pixelFmt, int roiX, int roiY,
                       uint32_t exposureLines, uint8_t aeMode, uint8_t triggerMode);
 
 private:

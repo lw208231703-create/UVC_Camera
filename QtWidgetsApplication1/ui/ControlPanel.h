@@ -1,7 +1,7 @@
 #pragma once
 
 // I2C调试 & 日志面板开关: 设为 1 开启, 0 隐藏
-#define UVC_DEBUG_PANELS 1
+#define UVC_DEBUG_PANELS 0
 
 #include <QWidget>
 #include <QScrollArea>

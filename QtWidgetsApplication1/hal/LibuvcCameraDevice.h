@@ -44,7 +44,9 @@ public:
 
     // Stats accessors
     uint64_t totalBytes() const    { return m_totalBytes; }
-    uint32_t totalFrames() const   { return m_totalFrames; }
+    uint64_t totalFrames() const   { return m_totalFrames; }
+    std::atomic<uint64_t>* framesCounter() { return &m_totalFrames; }
+    std::atomic<uint64_t>* bytesCounter()  { return &m_totalBytes; }
     uint32_t droppedFrames() const { return m_droppedFrames; }
     uint32_t realDroppedFrames() const { return m_realDroppedFrames; }
     uint32_t minorShortFrames() const  { return m_minorShortFrames; }
@@ -78,7 +80,7 @@ private:
 
     // Stats
     std::atomic<uint64_t> m_totalBytes{0};
-    std::atomic<uint32_t> m_totalFrames{0};
+    std::atomic<uint64_t> m_totalFrames{0};
     std::atomic<uint32_t> m_droppedFrames{0};
     std::atomic<uint32_t> m_realDroppedFrames{0};   // diff > kRealDropThreshold: 真实丢包
     std::atomic<uint32_t> m_minorShortFrames{0};     // diff <= kHeaderTolerance: UVC header 或微小容差

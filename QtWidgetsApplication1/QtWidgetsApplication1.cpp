@@ -32,6 +32,7 @@
 #include <opencv2/imgproc.hpp>
 #include <libwdi.h>
 #include "hal/BurstWorker.h"
+#include "hal/StatsWorker.h"
 #include <QSpinBox>
 
 // 注册 ProcessedFrame 为 Qt 元类型，支持跨线程 QueuedConnection
@@ -88,18 +89,27 @@ QtWidgetsApplication1::QtWidgetsApplication1(QWidget* parent)
             this, &QtWidgetsApplication1::onBurstBrowse);
     m_burstThread->start();
 
+    // ── 统计 worker（独立线程，滑动平均采样）──
+    m_statsThread = new QThread(this);
+    m_statsWorker = new StatsWorker;
+    m_statsWorker->setCounters(nullptr, &m_statsFrameCount, &m_statsByteCount);
+    m_statsWorker->moveToThread(m_statsThread);
+    connect(m_statsThread, &QThread::finished, m_statsWorker, &QObject::deleteLater);
+    connect(m_statsWorker, &StatsWorker::statsReady, this,
+            [this](double camFps, double dispFps, double rxMbps) {
+        m_fpsLabel->setText(QString("相机FPS: %1").arg((int)(camFps + 0.5)));
+        m_dispFpsLabel->setText(QString("显示FPS: %1").arg((int)(dispFps + 0.5)));
+        m_bandwidthLabel->setText(QString("Rx: %1 MB/s").arg(rxMbps, 0, 'f', 1));
+    });
+    m_statsThread->start();
+    QMetaObject::invokeMethod(m_statsWorker, "start", Qt::QueuedConnection);
+    m_statsElapsed.start();
+
     // Init libuvc context
     if (!DeviceEnumerator::instance().initialize()) {
         QMessageBox::critical(this, TR("Error"),
             TR("Failed to initialize libuvc.\nCheck USB driver installation."));
     }
-
-    // Stats timer (1 s, 每 5 次更新一次显示 = 5s 间隔)
-    m_statsTimer = new QTimer(this);
-    m_statsTimer->setInterval(1000);
-    connect(m_statsTimer, &QTimer::timeout, this, &QtWidgetsApplication1::updateStats);
-    m_statsTimer->start();
-    m_statsElapsed.start();
 
     // Detector temperature is read independently of the video stream.
     m_temperatureTimer = new QTimer(this);
@@ -131,6 +141,14 @@ QtWidgetsApplication1::~QtWidgetsApplication1() {
             QMetaObject::invokeMethod(m_burstWorker, "abort", Qt::QueuedConnection);
         m_burstThread->quit();
         m_burstThread->wait(3000);
+    }
+
+    // 清理统计线程
+    if (m_statsThread) {
+        if (m_statsWorker)
+            QMetaObject::invokeMethod(m_statsWorker, "stop", Qt::QueuedConnection);
+        m_statsThread->quit();
+        m_statsThread->wait(3000);
     }
 
     // 清理帧处理线程
@@ -304,6 +322,11 @@ void QtWidgetsApplication1::onOpenDevice() {
     if (m_deviceOpen) {
         // Close
         stopAll();
+        // 先断开统计 worker 的相机计数器，再销毁相机
+        if (m_statsWorker)
+            QMetaObject::invokeMethod(m_statsWorker, [w = m_statsWorker, disp = &m_statsFrameCount, bytes = &m_statsByteCount]() {
+                w->setCounters(nullptr, disp, bytes);
+            }, Qt::QueuedConnection);
         m_camera.reset();
         // 清空 worker 中的协议指针，防止悬空引用
         if (m_worker) m_worker->setProtocol(nullptr);
@@ -521,6 +544,15 @@ void QtWidgetsApplication1::onOpenDevice() {
     m_deviceOpen = true;
     m_controlPanel->setDeviceOpen(true);
 
+    // 将相机帧/字节计数器接入统计 worker
+    if (m_statsWorker && m_camera) {
+        QMetaObject::invokeMethod(m_statsWorker,
+            [w = m_statsWorker, cam = m_camera->framesCounter(), rx = m_camera->bytesCounter(),
+             disp = &m_statsFrameCount]() {
+            w->setCounters(cam, disp, rx);
+        }, Qt::QueuedConnection);
+    }
+
     updateDetectorTemperature();
 
     // Populate format/resolution combos
@@ -614,14 +646,11 @@ void QtWidgetsApplication1::onApplyStream() {
     m_displayFrameCount = 0;
     m_statsFrameCount  = 0;
     m_statsByteCount   = 0;
-    m_lastStatsSampleTime  = 0;
-    m_lastStatsSampleFrames = 0;
-    m_lastStatsSampleBytes  = 0;
-    m_lastStatsSampleCamFrames = 0;
-    m_statsTickCounter = 0;
     m_fpsLabel->setText(QString("相机FPS: --"));
     m_dispFpsLabel->setText(QString("显示FPS: --"));
     m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
+    if (m_statsWorker)
+        QMetaObject::invokeMethod(m_statsWorker, "reset", Qt::QueuedConnection);
 
     // 重置 worker 诊断计数器，确保新一轮启流的前3帧日志正常输出
     if (m_worker) m_worker->resetDiagCounters();
@@ -682,12 +711,17 @@ void QtWidgetsApplication1::renderFrame(QImage img, ProcessedFrame parsed) {
 
     m_statsFrameCount++;
     if (m_camera) m_statsByteCount = m_camera->totalBytes();
-
     m_displayFrameCount++;
-    auto now = QDateTime::currentDateTime();
+    // 用单调时钟计算运行时间，避免系统时间调整导致计时忽快忽慢
+    qint64 runMs = m_statsElapsed.elapsed();
+    int mm = (int)(runMs / 60000);
+    int ss = (int)((runMs / 1000) % 60);
+    int zzz = (int)(runMs % 1000);
     m_viewport->setOverlayText(
-        QString("%1  Frame: %2")
-            .arg(now.toString("hh:mm:ss.zzz"))
+        QString("%1:%2.%3  Frame: %4")
+            .arg(mm, 2, 10, QChar('0'))
+            .arg(ss, 2, 10, QChar('0'))
+            .arg(zzz, 3, 10, QChar('0'))
             .arg(m_displayFrameCount));
 }
 
@@ -764,6 +798,29 @@ void QtWidgetsApplication1::onDeviceLost() {
 
 void QtWidgetsApplication1::onStreamError(const QString& error) {
     LOG_ERROR(QString("Stream error: %1").arg(error));
+}
+
+bool QtWidgetsApplication1::isWinUsbDriverInstalled(uint16_t vid, uint16_t pid) {
+    struct wdi_device_info *list = NULL, *dev;
+    struct wdi_options_create_list cl;
+    memset(&cl, 0, sizeof(cl));
+    cl.list_all = TRUE;
+
+    if (wdi_create_list(&list, &cl) != 0) {
+        return false;
+    }
+
+    bool found = false;
+    for (dev = list; dev; dev = dev->next) {
+        if (dev->vid == vid && dev->pid == pid && dev->driver
+            && _stricmp(dev->driver, "winusb") == 0) {
+            found = true;
+            break;
+        }
+    }
+
+    wdi_destroy_list(list);
+    return found;
 }
 
 void QtWidgetsApplication1::onInstallDriver() {
@@ -866,54 +923,7 @@ void QtWidgetsApplication1::onInstallDriver() {
     }
 }
 
-// ── Stats update ──
-
-void QtWidgetsApplication1::updateStats() {
-    if (!m_camera || !m_streaming) {
-        m_fpsLabel->setText(QString("相机FPS: --"));
-        m_dispFpsLabel->setText(QString("显示FPS: --"));
-        m_bandwidthLabel->setText(QString("Rx: -- MB/s"));
-        return;
-    }
-
-    qint64 now = QDateTime::currentDateTime().currentMSecsSinceEpoch();
-
-    if (m_lastStatsSampleTime == 0) {
-        m_lastStatsSampleTime  = now;
-        m_lastStatsSampleFrames = m_statsFrameCount;
-        m_lastStatsSampleBytes  = m_statsByteCount;
-        m_lastStatsSampleCamFrames = m_camera->totalFrames();
-        m_statsTickCounter = 0;
-        return;
-    }
-
-    m_statsTickCounter++;
-
-    if (m_statsTickCounter != 1 && m_statsTickCounter % 5 != 0)
-        return;
-
-    double elapsed = (now - m_lastStatsSampleTime) / 1000.0;
-    if (elapsed < 0.5) return;
-
-    uint64_t dispFrames = m_statsFrameCount - m_lastStatsSampleFrames;
-    uint64_t camFrames  = m_camera->totalFrames() - m_lastStatsSampleCamFrames;
-    uint64_t bytes      = m_statsByteCount - m_lastStatsSampleBytes;
-
-    int camFps  = static_cast<int>(camFrames / elapsed + 0.5);
-    int dispFps = static_cast<int>(dispFrames / elapsed + 0.5);
-    int mbps    = static_cast<int>(bytes / elapsed / (1024.0 * 1024.0) + 0.5);
-
-    m_fpsLabel->setText(QString("相机FPS: %1").arg(camFps));
-    m_dispFpsLabel->setText(QString("显示FPS: %1").arg(dispFps));
-    m_bandwidthLabel->setText(QString("Rx: %1 MB/s").arg(mbps));
-
-    m_lastStatsSampleTime  = now;
-    m_lastStatsSampleFrames = m_statsFrameCount;
-    m_lastStatsSampleBytes  = m_statsByteCount;
-    m_lastStatsSampleCamFrames = m_camera->totalFrames();
-
-    m_statsTickCounter = 0;
-}
+// ── Stats 由独立线程 StatsWorker 计算（滑动平均）──
 
 void QtWidgetsApplication1::updateDetectorTemperature() {
     if (!m_deviceOpen || !m_paramWorker) {
