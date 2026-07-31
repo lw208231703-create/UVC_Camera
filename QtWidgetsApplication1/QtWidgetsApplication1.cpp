@@ -733,7 +733,8 @@ void QtWidgetsApplication1::onSnapshot() {
                 const_cast<uint8_t*>(m_lastFrame.data.data()));
     if (m_denoiseEnabled)
         cv::medianBlur(img, img, 3);
-    cv::imwrite(filename.toStdString(), img);
+    std::vector<int> params = { cv::IMWRITE_TIFF_COMPRESSION, 1 };
+    cv::imwrite(filename.toStdString(), img, params);
 
     const char* desc = (m_lastFrame.cv_type == CV_16UC1) ? "16-bit TIFF"
                      : (m_lastFrame.cv_type == CV_8UC3)  ? "BGR TIFF"

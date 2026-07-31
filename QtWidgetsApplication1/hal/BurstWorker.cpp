@@ -50,7 +50,8 @@ static bool saveFrame(const BurstFrame& f, const QString& path, bool denoise) {
     } else if (denoise && (f.cv_type == CV_8UC1 || f.cv_type == CV_8UC3)) {
         cv::medianBlur(img, img, 3);
     }
-    return cv::imwrite(path.toStdString(), img);
+    std::vector<int> params = { cv::IMWRITE_TIFF_COMPRESSION, 1 };
+    return cv::imwrite(path.toStdString(), img, params);
 }
 
 void BurstWorker::flush() {
