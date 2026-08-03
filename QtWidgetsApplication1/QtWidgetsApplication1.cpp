@@ -367,10 +367,7 @@ void QtWidgetsApplication1::onOpenDevice() {
     m_camera->setCameraIndex(cameraIdx);
 
     if (!m_camera->open()) {
-        QString msg = TR("摄像头打开失败\n\n%1"
-                         "\n\n当前设备未安装 WinUSB 驱动，libuvc 需要 WinUSB 驱动才能工作。\n"
-                         "请点击「安装驱动」按钮自动安装 WinUSB 驱动。")
-                          .arg(m_camera->lastError());
+        QString msg = TR("安装驱动");
         auto* box = new QMessageBox(QMessageBox::Critical, TR("驱动错误"), msg, QMessageBox::NoButton, this);
         auto* installBtn = box->addButton(TR("安装驱动"), QMessageBox::AcceptRole);
         box->addButton(TR("取消"), QMessageBox::RejectRole);
@@ -913,9 +910,7 @@ void QtWidgetsApplication1::onInstallDriver() {
     progress.close();
 
     if (installed > 0) {
-        QMessageBox::information(this, TR("完成"),
-            TR("成功为 %1 个接口安装 WinUSB 驱动。\n"
-               "请重新插拔设备后启动程序。").arg(installed));
+        QMessageBox::information(this, TR("完成"), TR("安装完成"));
     } else {
         QMessageBox::warning(this, TR("失败"),
             TR("驱动安装失败，请尝试以管理员身份运行本程序，\n"
